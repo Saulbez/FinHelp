@@ -1,0 +1,68 @@
+header{
+    background-color: #5426af;
+    height: 5rem;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 .6rem;
+}
+
+.hamburguer {
+    display: block;
+    cursor: pointer;
+}
+.hamburguer .line {
+    width: 30px;
+    height: 3px;
+    background-color: #fcfaf9;
+    margin: 6px 0;
+}
+
+h2#logo {
+    color: #fcfaf9;
+    text-align: center;
+}
+
+nav {
+    z-index: 99;
+    height: 0px;
+    position: absolute;
+    top: 65px;
+    left: 0;
+    right: 0;
+    width: 100%;
+    background-color: #5426af;
+    transition: .2s;
+    overflow: hidden;
+}
+
+nav.active {
+    height: 280px;
+}
+
+nav ul {
+    display: block;
+    width: fit-content;
+    margin: 35px auto 0;
+    text-align: center;
+    transition: .5s;
+    opacity: 0;
+    list-style: none;
+    padding: 0;
+}
+nav.active ul {
+    opacity: 1;
+}
+
+nav ul li a {
+    margin-bottom: 12px;
+    text-decoration: none;
+    color: #fcfaf9;
+}
+
+nav ul li {
+    padding: .5rem 1rem;
+    text-align: center;
+    font-size: 1.25rem;
+}

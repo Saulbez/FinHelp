@@ -1,0 +1,135 @@
+:root {
+    --color1: #333333;
+    --color2: #48e5c2;
+    --color3: #fcfaf9;
+    --color4: #f3d3bd;
+    --color5: #5e5e5e;
+}
+
+*{
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+}
+
+div.profit {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+div.profit p {
+    color: #fcfaf9;
+}
+
+div.profit > p:last-child {
+    background-color: rgba(0, 0, 0, 0.699);
+    padding: 0.5rem 1rem;
+    border-radius: .6rem;
+    text-align: center;
+    margin-left: .2rem;
+}
+
+main {
+    width: 100%;
+}
+
+h2, h3 {
+    color: #5426af;
+}
+
+h2 {
+    font-size: 2rem;
+    text-align: center;
+}
+
+h3 {
+    font-size: 1.3rem;
+    text-align: center;
+}
+
+div.tables-wrapper {
+    text-align: center;
+    width: 100%;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+
+table {
+    margin: 1rem 0;
+}
+
+table, th, td {
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow-x: auto;
+}
+
+th, td {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.301);
+    border-right: 1px solid rgba(0, 0, 0, 0.301);
+    padding: .2rem .4rem;
+}
+
+table tr td:first-child,
+table tr th:first-child {
+  border-left: 1px solid rgba(0, 0, 0, 0.301);
+}
+
+table tr th {
+    border-top: 1px solid rgba(0, 0, 0, 0.301);
+}
+
+table tr:first-child th:first-child {
+    border-top-left-radius: 0.8rem;
+}
+
+table tr:first-child th:last-child {
+    border-top-right-radius: 0.8rem;
+}
+
+table tr:last-child td:last-child {
+    border-bottom-right-radius: 0.8rem;
+}
+
+table tr:last-child td:first-child {
+    border-bottom-left-radius: 0.8rem;
+}
+
+table tr:nth-child(even) {background-color: #f2f2f2;}
+
+table th {
+    background-color: #5426af;
+    color: white;
+}
+
+table.clients-table {
+    overflow-x: auto;
+    display: block;
+    white-space: nowrap;
+}
+
+div.current-magazines {
+    margin: auto;
+}
+
+div.catalogs {
+    background-color: #5426af7c;
+    padding: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+}
+
+div.catalogs img {
+    margin: 1rem .5rem;
+    height: 10rem;
+    width: 112.8px;
+    border-radius: .6rem;
+    object-fit: cover;
+}
