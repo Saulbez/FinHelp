@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+
 :root {
     --color1: #333333;
     --color2: #48e5c2;
@@ -8,11 +10,13 @@
 
 *{
     box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: "poppins";
 }
 
 body {
-    margin: 0;
-    padding: 0;
+    min-height: 100vh;
 }
 
 div.profit {
@@ -61,6 +65,7 @@ div.tables-wrapper {
 
 table {
     margin: 1rem 0;
+    width: 100%;
 }
 
 table, th, td {
@@ -113,8 +118,21 @@ table.clients-table {
     white-space: nowrap;
 }
 
+td button {
+    background-color: #33333325;
+    font-size: 1rem;
+    font-weight: bold;
+    padding: 0 1rem .4rem;
+    border-radius: .5rem;
+}
+
 div.current-magazines {
-    margin: auto;
+    margin: 0 auto 20px;
+}
+
+div.boticario h3, div.avon h3{
+    margin: 2rem;
+    font-size: 1.5rem;
 }
 
 div.catalogs {
@@ -124,12 +142,77 @@ div.catalogs {
     flex-wrap: wrap;
     justify-content: center;
     align-items: center;
+    width: 100%;
 }
 
 div.catalogs img {
     margin: 1rem .5rem;
-    height: 10rem;
-    width: 112.8px;
+    height: 32vh;
+    width: 26vw;
+    min-width: 8rem;
+    min-height: 11rem;
     border-radius: .6rem;
     object-fit: cover;
+}
+
+@media screen and (min-width: 768px) {
+    .container {
+        width: 100%;
+        padding: 10px 30px;
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+
+    .container div.tables-wrapper:first-child {
+        width: 60%;
+        margin-left: 0;
+    }
+
+    table.recent-sales {
+        display: inline;
+        white-space: wrap;
+    }
+
+    .container div.tables-wrapper:last-child {
+        width: 40%;
+        margin-right: 0;
+    }
+
+    div.current-magazines {
+        margin-left:15px;
+        margin-right: 15px;
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    div.boticario, div.avon {
+        width: 49%;
+        height: 100%;
+    }
+
+    div.catalogs {
+        height: 100%;
+        border-radius: 1.5rem;
+    }
+
+    div.catalogs img {
+        margin: 1rem .5rem;
+        height: 33vh;
+        width: 15vw;
+        max-width: 14rem;
+        max-height: 25rem;
+        min-width: 9rem;
+    }
+}
+
+@media screen and (max-width: 350px) {
+    table.recent-sales, table.products-table {
+        display: block;
+        overflow: auto;
+        white-space: nowrap;
+    }
 }
