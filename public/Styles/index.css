@@ -156,6 +156,10 @@ div.catalogs img {
 }
 
 @media screen and (min-width: 768px) {
+    main {
+        max-width: 2000px;
+        margin: 0 auto;
+    }
     .container {
         width: 100%;
         padding: 10px 30px;
@@ -165,17 +169,33 @@ div.catalogs img {
         align-items: flex-start;
     }
 
-    .container div.tables-wrapper:first-child {
+    .container div.tables-wrapper.home:first-child {
         width: 60%;
         margin-left: 0;
     }
 
-    table.recent-sales {
-        display: inline;
-        white-space: wrap;
+    h2 {
+        font-size: 3rem;
+        margin-top: 3rem;
+        margin-bottom: .5rem;
+        text-align: left;
     }
 
-    .container div.tables-wrapper:last-child {
+    .tables-wrapper.home h3, div.boticario h3, div.avon h3 {
+        font-size: 2rem;
+    }
+
+    table th, table td {
+        padding: 1rem 0;
+    }
+
+    /* table.recent-sales {
+        display: inline;
+        white-space: wrap;
+        width: 100%;
+    } */
+
+    .container div.tables-wrapper.home:last-child {
         width: 40%;
         margin-right: 0;
     }
@@ -202,8 +222,8 @@ div.catalogs img {
     div.catalogs img {
         margin: 1rem .5rem;
         height: 33vh;
-        width: 15vw;
-        max-width: 14rem;
+        width: 15.5vw;
+        max-width: 19rem;
         max-height: 25rem;
         min-width: 9rem;
     }
