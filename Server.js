@@ -28,6 +28,10 @@ app.get("/login", async (req, res) => {
     res.render("login.ejs", { title: "Login" });
 })
 
+app.get("/vendas", async (req, res) => {
+    res.render("sales.ejs", { title: "Vendas" });
+})
+
 app.post("/login", async (req, res) => {
     const username = req.body["username"];
     const password = req.body["password"];
