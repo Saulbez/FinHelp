@@ -1,5 +1,14 @@
+:root {
+    --primary-color: #5426af;    /* Cor principal */
+    --primary-hover: #3a1c7a;    /* Hover escuro */
+    --secondary-color: #e8e2f3;  /* Fundo suave */
+    --accent-color: #48e5c2;     /* Destaques (teal) */
+    --text-dark: #2a2a2a;
+    --text-light: #ffffff;
+  }
+
 header{
-    background-color: #5426af;
+    background-color: var(--primary-color);
     height: 5rem;
     display: flex;
     flex-direction: row;
@@ -64,11 +73,38 @@ nav.active ul {
 nav ul li a {
     margin-bottom: 12px;
     text-decoration: none;
-    color: #fcfaf9;
+    color: var(--text-light);
+    transition: color .3s;
+}
+
+nav ul li a:hover {
+    color: var(--accent-color);
 }
 
 nav ul li {
     padding: .5rem 1rem;
     text-align: center;
     font-size: 1.25rem;
+}
+
+div.profit p {
+    margin: 0;
+}
+
+div.profit {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+div.profit p {
+    color: #fcfaf9;
+}
+
+div.profit > p:last-child {
+    background-color: rgba(0, 0, 0, 0.699);
+    padding: 0.5rem 1rem;
+    border-radius: .6rem;
+    text-align: center;
+    margin-left: .2rem;
 }

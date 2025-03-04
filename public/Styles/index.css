@@ -1,12 +1,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
 
 :root {
-    --color1: #333333;
-    --color2: #48e5c2;
-    --color3: #fcfaf9;
-    --color4: #f3d3bd;
-    --color5: #5e5e5e;
-}
+    --primary-color: #5426af;    /* Cor principal */
+    --primary-hover: #3a1c7a;    /* Hover escuro */
+    --secondary-color: #e8e2f3;  /* Fundo suave */
+    --accent-color: #48e5c2;     /* Destaques (teal) */
+    --text-dark: #2a2a2a;
+    --text-light: #ffffff;
+  }
 
 *{
     box-sizing: border-box;
@@ -16,29 +17,14 @@
 }
 
 body {
-    min-height: 100vh;
-}
-
-div.profit {
     display: flex;
-    flex-direction: row;
-    align-items: center;
-}
-
-div.profit p {
-    color: #fcfaf9;
-}
-
-div.profit > p:last-child {
-    background-color: rgba(0, 0, 0, 0.699);
-    padding: 0.5rem 1rem;
-    border-radius: .6rem;
-    text-align: center;
-    margin-left: .2rem;
+    flex-direction: column;
+    min-height: 100vh;
 }
 
 main {
     width: 100%;
+    flex: 1 1 0;
 }
 
 h2, h3 {
@@ -66,6 +52,7 @@ div.tables-wrapper {
 table {
     margin: 1rem 0;
     width: 100%;
+    border: none;
 }
 
 table, th, td {
@@ -78,6 +65,10 @@ th, td {
     border-bottom: 1px solid rgba(0, 0, 0, 0.301);
     border-right: 1px solid rgba(0, 0, 0, 0.301);
     padding: .2rem .4rem;
+}
+
+td {
+    text-align: center;
 }
 
 table tr td:first-child,
@@ -109,11 +100,18 @@ table tr:last-child td:first-child {
     border-bottom-left-radius: 0.8rem;
 }
 
-table tr:nth-child(even) {background-color: #f2f2f2;}
+table th, thead {
+    background-color: var(--primary-color);
+    color: var(--text-light);
+    text-align: center;
+}
 
-table th {
-    background-color: #5426af;
-    color: white;
+tr:nth-child(even) {
+    background-color: var(--secondary-color);
+}
+
+table tr{
+    padding: .3rem .5rem;
 }
 
 table.clients-table {
@@ -131,7 +129,7 @@ td button {
 }
 
 div.current-magazines {
-    margin: 0 auto 20px;
+    margin: 0 auto;
 }
 
 div.boticario h3, div.avon h3{
@@ -159,6 +157,100 @@ div.catalogs img {
     object-fit: cover;
 }
 
+select[multiple] {
+    min-height: 150px;
+}
+
+option:checked {
+    background-color: #5426af;
+    color: white;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    border: none;
+    color: var(--text-light);
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-hover);
+}
+
+.btn-accent {
+    background-color: var(--accent-color);
+    color: var(--text-dark);
+}
+
+.card-header {
+    background-color: var(--primary-color);
+    color: var(--text-light);
+    border-radius: 8px 8px 0 0;
+}
+
+.alert-primary {
+    background-color: var(--secondary-color);
+    border-left: 4px solid var(--primary-color);
+    color: var(--text-dark);
+}
+
+/* Botões com tema */
+.btn-edit {
+    background-color: #48e5c2;
+    color: #2a2a2a;
+    transition: all 0.3s;
+  }
+  
+  .btn-history {
+    background-color: #5426af;
+    color: white;
+    transition: all 0.3s;
+  }
+  
+  .btn-delete {
+    background-color: #e54858;
+    color: white;
+    transition: all 0.3s;
+  }
+  
+  /* Hover Animations */
+  .btn-edit:hover {
+    transform: scale(1.05);
+    background-color: #3ac2a7;
+  }
+  
+  .btn-history:hover {
+    transform: scale(1.05);
+    background-color: #3a1c7a;
+  }
+  
+  .btn-delete:hover {
+    transform: scale(1.05);
+    background-color: #c23a47;
+  }
+  
+  /* Animação de pulse para feedback */
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+  }
+  
+  .action-success {
+    animation: pulse 0.5s ease-in-out;
+  }
+
+  /* Adicione ao CSS */
+.card.border-success {
+    border-width: 2px;
+    animation: pulseBorder 2s infinite;
+  }
+  
+  @keyframes pulseBorder {
+    0% { border-color: #198754; }
+    50% { border-color: #20c997; }
+    100% { border-color: #198754; }
+  }
+
 @media screen and (min-width: 768px) {
     .container {
         width: 100%;
@@ -177,6 +269,7 @@ div.catalogs img {
     table.clients-table {
         display: table;
         width: 100%;
+        white-space: nowrap;
     }
 
     h2 {
@@ -231,6 +324,44 @@ div.catalogs img {
         max-width: 19rem;
         max-height: 25rem;
         min-width: 9rem;
+    }
+
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .object-fit-cover {
+        object-fit: cover;
+    }
+      
+    .card {
+        margin-bottom: 1rem;
+        border: 2px solid var(--primary-color);
+        transition: transform 0.2s, box-shadow 0.2s;
+        border-radius: 0.8rem;
+    }
+
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    }
+    
+    .form-select {
+        border-radius: 8px;
+        border: 2px solid #e0e0e0;
+    }
+    
+    .modal-content {
+        border-radius: 16px;
+    }
+    
+    .bi {
+        vertical-align: middle;
+    }
+      
+    .modal-dialog {
+        margin: 1rem;
     }
 }
 

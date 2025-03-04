@@ -1,50 +1,222 @@
 <%- include('partials/header.ejs') %>
 
-<main>
-    <div class="tables-wrapper">
-        <h2>Produtos Cadastrados</h2>
-        <table class="products-table">
-            <tr>
-                <th>Produto</th>
-                <th>Valor</th>
-                <th>Ações</th>
-                <th>Campanha</th>
-            </tr>
-            <tr>
-                <td>Quasar Fire</td>
-                <td>149,90</td>
-                <td><button>...</button></td>
-                <td>Ativa</td>
-            </tr>
-            <tr>
-                <td>Essencial Supreme</td>
-                <td>149,90</td>
-                <td><button>...</button></td>
-                <td>+</td>
+<main class="container-fluid px-md-5">
+    <!-- Seção de Controles -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-3 my-4">
+        <!-- Botão Novo Produto -->
+        <button class="btn btn-primary rounded-pill px-4 py-2 d-flex align-items-center" 
+                data-bs-toggle="modal" 
+                data-bs-target="#newProductModal">
+            <i class="bi bi-plus-circle me-2"></i>Novo Produto
+        </button>
 
-            </tr>
-            <tr>
-                <td>Egeo Blue</td>
-                <td>149,90</td>
-                <td><button>...</button></td>
-                <td>+</td>
+        <!-- Filtros -->
+        <div class="d-flex flex-column flex-sm-row gap-3 w-100 w-md-auto">
+            <select class="form-select form-select-sm shadow-sm" id="brandFilter">
+                <option value="all">Todas Marcas</option>
+                <option value="boticario">Boticário</option>
+                <option value="avon">Avon</option>
+            </select>
+            
+            <!-- Botão Nova Campanha -->
+            <button class="btn btn-outline-primary rounded-pill px-4 py-2 d-flex align-items-center"
+                    data-bs-toggle="modal" 
+                    data-bs-target="#newCampaignModal">
+                <i class="bi bi-megaphone me-2"></i>Nova Campanha
+            </button>
+        </div>
+    </div>
 
-            </tr>
-            <tr>
-                <td>Lily</td>
-                <td>149,90</td>
-                <td><button>...</button></td>
-                <td>Ativa</td>
-            </tr>
-            <tr>
-                <td>Club 6</td>
-                <td>149,90</td>
-                <td><button>...</button></td>
-                <td>+</td>
-            </tr>
-        </table>
+    <!-- Grid de Produtos -->
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
+        <% products.forEach(product => { %>
+        <div class="col" data-brand="<%= product.brand %>">
+            <div class="card h-100 shadow-sm position-relative <%= product.stock < 5 ? 'border-danger' : '' %>">
+                <!-- Badge de Campanha -->
+                <% if(product.current_campaign_id) { %>
+                <span class="position-absolute top-0 start-0 m-2 badge bg-success">
+                    PROMO <i class="bi bi-tag ms-1"></i>
+                </span>
+                <% } %>
+
+                <!-- Imagem com Botão de Editar -->
+                <div class="position-relative">
+                    <img src="<%= product.image || 'placeholder.jpg' %>" 
+                         class="card-img-top p-2 object-fit-cover" 
+                         alt="<%= product.name %>"
+                         style="height: 200px;">
+                    
+                    <div class="position-absolute top-0 end-0 m-2">
+                        <button class="btn btn-sm btn-light rounded-circle shadow-sm"
+                                data-bs-toggle="modal" 
+                                data-bs-target="#editProductModal"
+                                onclick="loadProductData('<%= JSON.stringify(product) %>')">
+                            <i class="bi bi-pencil text-primary"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Corpo do Card -->
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title mb-3">
+                        <%= product.name %>
+                        <small class="d-block text-muted fs-6"><%= product.brand %></small>
+                    </h5>
+
+                    <div class="mt-auto">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge bg-<%= product.stock < 5 ? 'danger' : 'secondary' %>">
+                                Estoque: <%= product.stock %>
+                            </span>
+                            <div class="d-flex align-items-center">
+                                <% if(product.current_campaign_id) { %>
+                                <span class="text-danger fw-bold me-2">
+                                    R$ <%= product.promo_price.toFixed(2) %>
+                                </span>
+                                <span class="text-decoration-line-through text-muted small">
+                                    <%= product.price.toFixed(2) %>
+                                </span>
+                                <% } else { %>
+                                <span class="text-dark fw-bold">
+                                    R$ <%= Number(product.price).toFixed(2) %>
+                                </span>
+                                <% } %>
+                            </div>
+                        </div>
+
+                        <% if(product.current_campaign_id) { %>
+                        <div class="bg-warning bg-opacity-10 p-2 rounded text-center small">
+                            <i class="bi bi-clock-history me-1"></i>
+                            Promoção válida até <%= product.end_date %>
+                        </div>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <% }) %>
     </div>
 </main>
 
-</body>
-</html>
+<!-- Modal Novo Produto (Atualizado) -->
+<div class="modal fade" id="newProductModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-box-seam me-2"></i>Novo Produto
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/produtos" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nome do Produto</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-tag"></i></span>
+                            <input type="text" name="name" class="form-control" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Marca</label>
+                        <select name="brand" class="form-select" required>
+                            <option value="boticario">Boticário</option>
+                            <option value="avon">Avon</option>
+                        </select>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Preço</label>
+                            <div class="input-group">
+                                <span class="input-group-text">R$</span>
+                                <input type="number" name="price" class="form-control" step="0.01" required>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Estoque</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-box"></i></span>
+                                <input type="number" name="stock" class="form-control" required>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0">
+                    <button type="submit" class="btn btn-primary w-100 py-2">
+                        <i class="bi bi-save me-2"></i>Cadastrar Produto
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nova Campanha -->
+<div class="modal fade" id="newCampaignModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title">
+                    <i class="bi bi-megaphone me-2"></i>Nova Campanha
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/campanhas" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Selecione o Produto</label>
+                        <select name="product_id" class="form-select" required>
+                            <% products.forEach(product => { %>
+                            <option value="<%= product.id %>"><%= product.name %></option>
+                            <% }) %>
+                        </select>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Data Início</label>
+                            <input type="date" name="start_date" class="form-control" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Data Término</label>
+                            <input type="date" name="end_date" class="form-control" required>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <label class="form-label">Preço Promocional</label>
+                        <div class="input-group">
+                            <span class="input-group-text">R$</span>
+                            <input type="number" name="promo_price" class="form-control" step="0.01" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0">
+                    <button type="submit" class="btn btn-warning w-100 py-2">
+                        <i class="bi bi-lightning-charge me-2"></i>Criar Campanha
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Função para filtrar produtos
+    function filterProducts() {
+        const brand = document.getElementById('brandFilter').value;
+        document.querySelectorAll('[data-brand]').forEach(card => {
+            card.style.display = (brand === 'all' || card.dataset.brand === brand) ? 'block' : 'none';
+        });
+    }
+
+    // Event listeners
+    document.getElementById('brandFilter').addEventListener('change', filterProducts);
+    document.addEventListener('DOMContentLoaded', filterProducts);
+</script>
+
+<%- include('partials/footer.ejs') %>
