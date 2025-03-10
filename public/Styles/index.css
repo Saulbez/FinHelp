@@ -198,58 +198,91 @@ option:checked {
     background-color: #48e5c2;
     color: #2a2a2a;
     transition: all 0.3s;
-  }
+}
   
-  .btn-history {
+.btn-history {
     background-color: #5426af;
     color: white;
     transition: all 0.3s;
-  }
+}
   
   .btn-delete {
     background-color: #e54858;
     color: white;
     transition: all 0.3s;
-  }
+}
   
   /* Hover Animations */
-  .btn-edit:hover {
+.btn-edit:hover {
     transform: scale(1.05);
     background-color: #3ac2a7;
-  }
+}
   
-  .btn-history:hover {
+.btn-history:hover {
     transform: scale(1.05);
     background-color: #3a1c7a;
-  }
+}
   
-  .btn-delete:hover {
+.btn-delete:hover {
     transform: scale(1.05);
     background-color: #c23a47;
-  }
+}
   
-  /* Animação de pulse para feedback */
-  @keyframes pulse {
+/* Animação de pulse para feedback */
+@keyframes pulse {
     0% { transform: scale(1); }
     50% { transform: scale(1.05); }
     100% { transform: scale(1); }
-  }
+}
   
-  .action-success {
+.action-success {
     animation: pulse 0.5s ease-in-out;
-  }
+}
 
-  /* Adicione ao CSS */
+/* Adicione ao CSS */
 .card.border-success {
     border-width: 2px;
     animation: pulseBorder 2s infinite;
-  }
+}
   
-  @keyframes pulseBorder {
+@keyframes pulseBorder {
     0% { border-color: #198754; }
     50% { border-color: #20c997; }
     100% { border-color: #198754; }
-  }
+}
+
+.img-thumbnail {
+    transition: transform 0.3s ease;
+    object-fit: cover;
+}
+
+.img-thumbnail:hover {
+    transform: scale(1.05);
+}
+
+#currentImagePreview {
+    border: 2px solid #dee2e6;
+    border-radius: 10px;
+}
+
+.image-upload-container {
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.image-upload-container:hover {
+    opacity: 0.8;
+}
+
+#newImagePreview,
+#editImagePreview {
+    object-fit: cover;
+    background-color: #f8f9fa;
+}
+
+.modal-header:not(.modal-header.campaign) {
+    background-color: var(--primary-color) !important;
+}
 
 @media screen and (min-width: 768px) {
     .container {
@@ -359,9 +392,218 @@ option:checked {
     .bi {
         vertical-align: middle;
     }
+
+    .bi-pencil.text-primary {
+        color: #5426af !important;
+    }
       
     .modal-dialog {
         margin: 1rem;
+    }
+}
+
+.modal {
+    z-index: 1060;
+}
+
+/* .modal-backdrop {
+    display: none !important;
+}
+
+.modal.show .modal-backdrop {
+    display: block !important;
+} */
+
+.search-input {
+    padding-left: 2.5rem !important; /* Espaço para a lupa */
+    border-radius: 1.5rem !important;
+    border: 2px solid #dee2e6;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+
+}
+
+.search-input:focus {
+    border-color: #5426af;
+    box-shadow: 0 0 0 3px rgba(84, 38, 175, 0.1);
+}
+
+.search-input::placeholder {
+    color: #6c757d;
+    opacity: 0.8;
+    font-style: italic;
+}
+
+.search-icon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d; /* Cor cinza do Bootstrap */
+    pointer-events: none; /* Impede interação com o ícone */
+}
+
+.clear-search {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    padding: 0;
+    display: none; /* Inicialmente oculto */
+}
+
+.clear-search.show {
+    display: block;
+}
+
+.is-invalid {
+    border-color: #dc3545 !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+.is-invalid:focus {
+    box-shadow: 0 0 0 0.25rem rgba(220,53,69,.25);
+}
+
+.invalid-feedback {
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 0.875em;
+    color: #dc3545;
+}
+
+/* Limitar largura do formulário */
+#newSaleForm {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.payment-method {
+    max-width: 800px;
+    width: 100%;
+}
+
+.d-none {
+    display: none !important;
+}
+
+.d-none input, d.none select {
+    visibility: hidden !important;
+    height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    all: unset !important;
+}
+
+.payment-amount[readonly] {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+}
+
+#togglePaymentMethod {
+    transition: all 0.3s ease;
+    border-radius: 20px;
+}
+
+#togglePaymentMethod.active {
+    background: #198754;
+    color: white;
+}
+
+.toggle-label::after {
+    content: "Adicionar";
+}
+
+#togglePaymentMethod.active .toggle-label::after {
+    content: "Remover";
+}
+
+.form-switch {
+    padding-left: 0;
+}
+
+.form-switch .form-check-input {
+    width: 3em;
+    height: 1.5em;
+    margin-left: 0;
+    background-color: #ddd;
+    border: none;
+}
+
+.form-switch .form-check-input:checked {
+    background-color: #198754;
+}
+
+.form-switch .form-check-label {
+    font-weight: 500;
+    margin-left: 0.5rem;
+}
+
+.method-total {
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.interest-detail {
+    font-size: 0.75rem;
+}
+
+.text-danger {
+    color: #dc3545 !important;
+}
+
+.input-group {
+    position: relative;
+}
+
+.input-group:focus-within {
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    border-radius: 0.375rem;
+    transition: all 0.3s ease;
+}
+
+.text-decoration-line-through {
+    font-size: 0.9em;
+    opacity: 0.7;
+}
+
+/* Destaque para o preço promocional */
+.text-danger.fs-5 {
+    font-size: 1.25rem !important;
+}
+
+.promo-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 2;
+}
+
+.promo-price .current {
+    color: #dc3545;
+    font-size: 1.25rem;
+    font-weight: bold;
+}
+
+.promo-price .original {
+    color: #6c757d;
+    text-decoration: line-through;
+    font-size: 0.9rem;
+}
+
+.normal-price {
+    color: #212529;
+    font-size: 1.25rem;
+    font-weight: bold;
+}
+
+/* Ajuste de responsividade */
+@media (min-width: 992px) {
+    #newSaleForm {
+        width: 80%;
     }
 }
 

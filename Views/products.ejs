@@ -1,8 +1,10 @@
 <%- include('partials/header.ejs') %>
 
 <main class="container-fluid px-md-5">
+
     <!-- Seção de Controles -->
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-3 my-4">
+
         <!-- Botão Novo Produto -->
         <button class="btn btn-primary rounded-pill px-4 py-2 d-flex align-items-center" 
                 data-bs-toggle="modal" 
@@ -10,13 +12,45 @@
             <i class="bi bi-plus-circle me-2"></i>Novo Produto
         </button>
 
+        <!-- Campo de Busca -->
+        <div class="position-relative w-100 me-md-3">
+            <input type="text" 
+                   id="searchInput" 
+                   class="form-control search-input" 
+                   placeholder="Pesquisar produto...">
+            <i class="bi bi-search search-icon"></i>
+            <button class="btn btn-link clear-search" type="button">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
         <!-- Filtros -->
         <div class="d-flex flex-column flex-sm-row gap-3 w-100 w-md-auto">
-            <select class="form-select form-select-sm shadow-sm" id="brandFilter">
-                <option value="all">Todas Marcas</option>
-                <option value="boticario">Boticário</option>
-                <option value="avon">Avon</option>
+            <label class="form-label">Marca</label>
+            <select id="brandFilter" class="form-select">
+                <option value="all">Todas as Marcas</option>
+                <% brands.forEach(brand => { %>
+                    <option value="<%= brand.id %>"><%= brand.name %></option>
+                <% }) %>
             </select>
+
+            <div class="input-group" style="width: 200px;">
+                <span class="input-group-text">R$</span>
+                <input type="number" 
+                       id="minPrice" 
+                       class="form-control" 
+                       placeholder="Mínimo" 
+                       step="0.01">
+            </div>
+            
+            <div class="input-group" style="width: 200px;">
+                <span class="input-group-text">R$</span>
+                <input type="number" 
+                       id="maxPrice" 
+                       class="form-control" 
+                       placeholder="Máximo" 
+                       step="0.01">
+            </div>
             
             <!-- Botão Nova Campanha -->
             <button class="btn btn-outline-primary rounded-pill px-4 py-2 d-flex align-items-center"
@@ -28,73 +62,13 @@
     </div>
 
     <!-- Grid de Produtos -->
-    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
-        <% products.forEach(product => { %>
-        <div class="col" data-brand="<%= product.brand %>">
-            <div class="card h-100 shadow-sm position-relative <%= product.stock < 5 ? 'border-danger' : '' %>">
-                <!-- Badge de Campanha -->
-                <% if(product.current_campaign_id) { %>
-                <span class="position-absolute top-0 start-0 m-2 badge bg-success">
-                    PROMO <i class="bi bi-tag ms-1"></i>
-                </span>
-                <% } %>
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4" id="productsContainer">
+        <!-- Os produtos serão renderizados via JavaScript aqui -->
+    </div>
 
-                <!-- Imagem com Botão de Editar -->
-                <div class="position-relative">
-                    <img src="<%= product.image || 'placeholder.jpg' %>" 
-                         class="card-img-top p-2 object-fit-cover" 
-                         alt="<%= product.name %>"
-                         style="height: 200px;">
-                    
-                    <div class="position-absolute top-0 end-0 m-2">
-                        <button class="btn btn-sm btn-light rounded-circle shadow-sm"
-                                data-bs-toggle="modal" 
-                                data-bs-target="#editProductModal"
-                                onclick="loadProductData('<%= JSON.stringify(product) %>')">
-                            <i class="bi bi-pencil text-primary"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Corpo do Card -->
-                <div class="card-body d-flex flex-column">
-                    <h5 class="card-title mb-3">
-                        <%= product.name %>
-                        <small class="d-block text-muted fs-6"><%= product.brand %></small>
-                    </h5>
-
-                    <div class="mt-auto">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="badge bg-<%= product.stock < 5 ? 'danger' : 'secondary' %>">
-                                Estoque: <%= product.stock %>
-                            </span>
-                            <div class="d-flex align-items-center">
-                                <% if(product.current_campaign_id) { %>
-                                <span class="text-danger fw-bold me-2">
-                                    R$ <%= product.promo_price.toFixed(2) %>
-                                </span>
-                                <span class="text-decoration-line-through text-muted small">
-                                    <%= product.price.toFixed(2) %>
-                                </span>
-                                <% } else { %>
-                                <span class="text-dark fw-bold">
-                                    R$ <%= Number(product.price).toFixed(2) %>
-                                </span>
-                                <% } %>
-                            </div>
-                        </div>
-
-                        <% if(product.current_campaign_id) { %>
-                        <div class="bg-warning bg-opacity-10 p-2 rounded text-center small">
-                            <i class="bi bi-clock-history me-1"></i>
-                            Promoção válida até <%= product.end_date %>
-                        </div>
-                        <% } %>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <% }) %>
+    <div id="noResults" class="alert alert-info d-none my-4">
+        <i class="bi bi-info-circle me-2"></i>
+        Nenhum produto encontrado com os critérios de busca
     </div>
 </main>
 
@@ -108,8 +82,24 @@
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form action="/produtos" method="POST">
+            <form action="/api/products" method="post" id="newProductForm" enctype="multipart/form-data">
                 <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Imagem do Produto</label>
+                        <div class="image-upload-container text-center">
+                            <img src="/images/products/placeholder.png" 
+                                 id="newImagePreview" 
+                                 class="img-thumbnail mb-2" 
+                                 style="height: 150px; width: 150px; cursor: pointer"
+                                 onclick="document.getElementById('newImageInput').click()">
+                            <input type="file" 
+                                   id="newImageInput" 
+                                   name="image" 
+                                   class="d-none" 
+                                   accept="image/*">
+                            <small class="text-muted d-block">Clique para adicionar imagem</small>
+                        </div>
+                    </div>
                     <div class="mb-3">
                         <label class="form-label">Nome do Produto</label>
                         <div class="input-group">
@@ -154,11 +144,82 @@
     </div>
 </div>
 
+<!-- Modal de Edição -->
+<div class="modal fade" id="editProductModal" tabindex="-1" aria-labelledby="editProductModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="editProductModalLabel">
+                    <i class="bi bi-pencil-square me-2"></i>Editar Produto
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form id="editProductForm" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <input type="hidden" id="editProductId" name="id">
+                    
+                    <!-- Seção de Upload de Imagem -->
+                    <div class="mb-3">
+                        <label class="form-label">Imagem do Produto</label>
+                        <div class="image-upload-container text-center">
+                            <img src="" id="editImagePreview" 
+                                 class="img-thumbnail mb-2" 
+                                 style="height: 150px; width: 150px; cursor: pointer"
+                                 onclick="document.getElementById('editImageInput').click()">
+                            <input type="file" 
+                                   id="editImageInput" 
+                                   name="image" 
+                                   class="d-none" 
+                                   accept="image/*">
+                            <small class="text-muted d-block">Clique na imagem para alterar</small>
+                        </div>
+                    </div>
+
+                    <!-- Restante dos campos do formulário -->
+                    <div class="mb-3">
+                        <label class="form-label">Nome do Produto</label>
+                        <input type="text" id="editProductName" name="name" class="form-control" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Marca</label>
+                        <select id="editProductBrand" class="form-select" required>
+                            <option value="boticario">Boticário</option>
+                            <option value="avon">Avon</option>
+                        </select>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Preço</label>
+                            <div class="input-group">
+                                <span class="input-group-text">R$</span>
+                                <input type="number" id="editProductPrice" class="form-control" step="0.01" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Estoque</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-box"></i></span>
+                                <input type="number" id="editProductStock" class="form-control" required>
+                            </div>
+                        </div>
+                        <input type="hidden" name="currentImage" id="existingImage">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Nova Campanha -->
 <div class="modal fade" id="newCampaignModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
-            <div class="modal-header bg-warning text-dark">
+            <div class="modal-header bg-warning text-dark campaign">
                 <h5 class="modal-title">
                     <i class="bi bi-megaphone me-2"></i>Nova Campanha
                 </h5>
@@ -204,19 +265,5 @@
         </div>
     </div>
 </div>
-
-<script>
-    // Função para filtrar produtos
-    function filterProducts() {
-        const brand = document.getElementById('brandFilter').value;
-        document.querySelectorAll('[data-brand]').forEach(card => {
-            card.style.display = (brand === 'all' || card.dataset.brand === brand) ? 'block' : 'none';
-        });
-    }
-
-    // Event listeners
-    document.getElementById('brandFilter').addEventListener('change', filterProducts);
-    document.addEventListener('DOMContentLoaded', filterProducts);
-</script>
 
 <%- include('partials/footer.ejs') %>

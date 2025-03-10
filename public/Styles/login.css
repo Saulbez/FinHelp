@@ -17,8 +17,8 @@ body {
 
 .container {
     position: relative;
-    width: 850px;
-    height: 550px;
+    width: 820px;
+    height: 510px;
     background: #fff;
     border-radius: 30px;
     box-shadow: 0 0 30px rgba(0, 0, 0, .2);
@@ -75,7 +75,7 @@ form {
 
 .input-box input {
     width: 100%;
-    padding: 13px 50px 13px 20px;
+    padding: 10px 50px 10px 20px;
     background: #eee;
     border-radius: 8px;
     border: none;
