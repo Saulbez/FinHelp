@@ -79,40 +79,31 @@ document.addEventListener('DOMContentLoaded', () => {
     // ========== EVENTO PARA ALTERAÇÃO DA FORMA DE PAGAMENTO ==========
     document.getElementById('togglePaymentMethod').addEventListener('change', function() {
         const paymentMethod2 = document.getElementById('paymentMethod2');
-        const isActive = paymentMethod2.classList.toggle('d-none');
         const layoutPaymentMethods = document.querySelector('.payment-methods-container');
         
-        console.log('Switch checked:', this.checked);
-        
         if (this.checked) {
+            // Exibe o container inteiro do método 2
             paymentMethod2.classList.remove('d-none');
+            // Se necessário, copie as opções do método 1 para o método 2
             paymentMethod2.querySelector('.payment-method').innerHTML = document.querySelector('.payment-method[data-index="1"]').innerHTML;
             layoutPaymentMethods.classList.remove('justify-content-start');
             layoutPaymentMethods.classList.add('justify-content-center');
+            // Define os campos como obrigatórios
+            paymentMethod2.querySelector('.payment-method').required = true;
+            paymentMethod2.querySelector('.payment-amount').required = true;
         } else {
+            // Oculta o container inteiro do método 2
             paymentMethod2.classList.add('d-none');
-            paymentMethod2.querySelector('.payment-method').value = '';
-            paymentMethod2.querySelector('.payment-amount').value = '';
             layoutPaymentMethods.classList.remove('justify-content-center');
             layoutPaymentMethods.classList.add('justify-content-start');
+            // Limpa valores e remove obrigatoriedade
+            paymentMethod2.querySelector('.payment-method').required = false;
+            paymentMethod2.querySelector('.payment-amount').required = false;
+            paymentMethod2.querySelector('.payment-method').value = '';
+            paymentMethod2.querySelector('.payment-amount').value = '';
         }
-
-        const method2Select = paymentMethod2.querySelector('.payment-method');
-        const method2Input = paymentMethod2.querySelector('.payment-amount');
-        
-        if (!isActive) {
-            method2Select.required = true;
-            method2Input.required = true;
-        } else {
-            method2Select.required = false;
-            method2Input.required = false;
-            method2Select.value = '';
-            method2Input.value = '';
-        }
-        
-        console.log('Classes do paymentMethod2:', paymentMethod2.classList);
         calculateTotals();
-    });
+    });    
 
     const populatePaymentMethods = () => {
         const baseOptions = document.querySelector('[data-index="1"]').options;
@@ -200,11 +191,14 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
         document.querySelectorAll('.payment-amount').forEach(input => {
-            input.addEventListener('input', function(e) {
-                const rawValue = e.target.value;
-                const formattedValue = formatCurrencyInput(rawValue);
-                e.target.value = formattedValue;
-                calculateTotals();
+            input.addEventListener('focus', function() {
+                 this.dataset.editing = "true";
+            });
+            input.addEventListener('blur', function() {
+                 this.dataset.editing = "false";
+                 const rawValue = formatCurrencyInput(this.value);
+                 this.value = formatDisplayCurrency(rawValue);
+                 calculateTotals(); // Atualiza os totais após formatação final
             });
         });
         document.getElementById('saleForm').addEventListener('submit', handleSaleSubmit);
@@ -250,7 +244,6 @@ document.addEventListener('DOMContentLoaded', () => {
       
         let totalInterest = 0;
         let totalBase = 0;
-        // Itera por todos os elementos de pagamento, processando apenas os visíveis
         document.querySelectorAll('.payment-method').forEach(method => {
             if (!isVisible(method)) return;
             const dataIndex = method.getAttribute('data-index');
@@ -261,13 +254,13 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (['credito', 'pix_credito'].includes(method.value)) {
                 const interestRate = parseFloat(
-                  document.querySelector(`.interest-field[data-index="${dataIndex}"] .interest-rate`)?.value || 0
+                    document.querySelector(`.interest-field[data-index="${dataIndex}"] .interest-rate`)?.value || 0
                 );
                 interest = baseValue * (interestRate / 100);
                 paymentTotal = baseValue + interest;
                 const interestDetail = document.querySelector(`.interest-detail[data-index="${dataIndex}"]`);
                 if (interestDetail) {
-                    interestDetail.innerHTML = `<small class="text-muted">Juros: ${formatCurrency(interest)}</small>`;
+                    interestDetail.innerHTML = `<small class="text-muted">Juros: ${formatDisplayCurrency(interest)}</small>`;
                 }
             }
             
@@ -276,27 +269,26 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const methodTotal = document.querySelector(`.method-total[data-index="${dataIndex}"]`);
             if (methodTotal) {
-                methodTotal.textContent = `Total: ${formatCurrency(paymentTotal)}`;
+                methodTotal.textContent = `Total: ${formatDisplayCurrency(paymentTotal)}`;
             }
-            amountInput.value = formatDisplayCurrency(baseValue);
+            // Atualiza o input somente se não estiver em edição
+            if (amountInput.dataset.editing !== "true") {
+                amountInput.value = formatDisplayCurrency(baseValue);
+            }
         });
         
         const total = subtotal + totalInterest;
-        
-        // Atualiza os elementos de resumo
-        document.getElementById('subtotal').textContent = formatCurrency(subtotal);
+        document.getElementById('subtotal').textContent = formatDisplayCurrency(subtotal);
         document.getElementById('subtotal').dataset.raw = subtotal.toFixed(2);
         document.getElementById('totalRaw').dataset.subtotal = subtotal.toFixed(2);
         document.getElementById('totalRaw').dataset.value = total.toFixed(2);
-        
-        // Atualiza o span que mostra o total da compra
-        document.getElementById('totalAmount').textContent = formatCurrency(total);
+        document.getElementById('totalAmount').textContent = formatDisplayCurrency(total);
       
         const paymentMethod2 = document.getElementById('paymentMethod2');
         const isSecondMethodActive = !paymentMethod2.classList.contains('d-none');
         const firstPaymentInput = document.querySelector('.payment-amount[data-index="1"]');
         if (!isSecondMethodActive) {
-            firstPaymentInput.value = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total);
+            firstPaymentInput.value = formatDisplayCurrency(subtotal);
             firstPaymentInput.setAttribute('readonly', 'true');
         } else {
             firstPaymentInput.removeAttribute('readonly');
@@ -341,7 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const interestRate = parseFloat(this.value) || 0;
                     const amountInput = document.querySelector(`.payment-amount[data-index="${dataIndex}"]`);
                     if (amountInput) {
-                        amountInput.value = (subtotal * (1 + interestRate/100)).toFixed(2).replace('.', ',');
+                        amountInput.value = (subtotal).toFixed(2).replace('.', ',');
                     }
                     calculateTotals();
                 }
@@ -352,7 +344,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const handlePaymentMethodChange = (event) => {
         const dataIndex = event.target.getAttribute('data-index');
         const interestField = document.querySelector(`.interest-field[data-index="${dataIndex}"]`);
-        interestField.style.display = ['credito', 'pix_credito'].includes(event.target.value) ? 'block' : 'none';
+        // Exibe o campo se o método for 'credito' ou 'pix_credito'
+        if (['credito', 'pix_credito'].includes(event.target.value)) {
+          interestField.style.display = 'block';
+        } else {
+          interestField.style.display = 'none';
+        }
         calculateTotals();
     };
 
