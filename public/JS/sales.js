@@ -1,146 +1,230 @@
 document.addEventListener('DOMContentLoaded', () => {
     let productsData = [];
     let campaigns = [];
+    const centsMap = new WeakMap();
 
-    // === FUNÇÃO AUXILIAR PARA VERIFICAR VISIBILIDADE ===
+    // === CONFIGURATION CONSTANTS ===
+    const CONFIG = {
+        NOTIFICATION_DURATION: 5000,
+        CALCULATION_PRECISION: 0.01,
+        MAX_RETRY_ATTEMPTS: 3,
+        RETRY_DELAY: 1000
+    };
+
+    // === UTILITY FUNCTIONS ===
     const isVisible = (el) => {
         return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
     };
 
-    // ========== FUNÇÕES DE CARREGAMENTO ==========
+    const debounce = (func, delay) => {
+        let timeoutId;
+        return (...args) => {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => func.apply(null, args), delay);
+        };
+    };
+
+    const retryFetch = async (url, options = {}, maxRetries = CONFIG.MAX_RETRY_ATTEMPTS) => {
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                const response = await fetch(url, options);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response;
+            } catch (error) {
+                console.warn(`Attempt ${attempt} failed for ${url}:`, error.message);
+                if (attempt === maxRetries) throw error;
+                await new Promise(resolve => setTimeout(resolve, CONFIG.RETRY_DELAY * attempt));
+            }
+        }
+    };
+
+    // ========== IMPROVED LOADING FUNCTIONS ==========
     const loadProducts = async () => {
         try {
-            const response = await fetch('/api/produtos');
-            if (!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
-            productsData = await response.json();
-            console.log('Produtos carregados:', productsData); 
-            if (!Array.isArray(productsData)) {
-                throw new Error('Dados de produtos inválidos');
+            const response = await retryFetch('/api/produtos');
+            const data = await response.json();
+            
+            if (!Array.isArray(data)) {
+                throw new Error('Invalid products data format - expected array');
             }
+            
+            productsData = data;
+            console.log('Products loaded successfully:', productsData.length, 'items');
+            
+            // Validate product data structure
+            const invalidProducts = productsData.filter(p => 
+                !p.id || !p.name || (p.promo_price === undefined && p.original_price === undefined)
+            );
+            
+            if (invalidProducts.length > 0) {
+                console.warn('Found products with missing required fields:', invalidProducts);
+            }
+            
         } catch (error) {
-            console.error('Erro ao carregar produtos:', error);
-            showNotification('Falha ao carregar produtos. Tente recarregar a página.', 'danger');
+            console.error('Failed to load products:', error);
+            showNotification(`Failed to load products: ${error.message}`, 'danger');
+            productsData = []; // Ensure it's still an array
         }
     };
 
     const loadCampaigns = async () => {
         try {
-            const response = await fetch('/api/campanhas');
-            campaigns = await response.json();
+            const response = await retryFetch('/api/campanhas');
+            const data = await response.json();
+            
+            if (!Array.isArray(data)) {
+                throw new Error('Invalid campaigns data format - expected array');
+            }
+            
+            campaigns = data;
+            console.log('Campaigns loaded successfully:', campaigns.length, 'items');
+            
         } catch (error) {
-            console.error('Erro ao carregar campanhas:', error);
+            console.error('Failed to load campaigns:', error);
+            // Don't show user notification for campaigns as it's not critical
+            campaigns = []; // Ensure it's still an array
         }
     };
 
-    // ========== NOTIFICAÇÃO NO TOPO ==========
-    const showNotification = (message, type = 'danger', duration = 5000) => {
-        let notification = document.createElement('div');
-        notification.className = `notification alert alert-${type}`;
-        notification.innerHTML = `<span>${message}</span> <button class="btn-close" aria-label="Close"></button>`;
-        notification.style.position = 'fixed';
-        notification.style.top = '20px';
-        notification.style.left = '50%';
-        notification.style.transform = 'translateX(-50%)';
-        notification.style.zIndex = '1100';
-        notification.style.minWidth = '300px';
+    // ========== IMPROVED NOTIFICATION SYSTEM ==========
+    const showNotification = (message, type = 'danger', duration = CONFIG.NOTIFICATION_DURATION) => {
+        // Remove existing notifications of the same type to avoid spam
+        document.querySelectorAll(`.notification.alert-${type}`).forEach(n => n.remove());
+        
+        const notification = document.createElement('div');
+        notification.className = `notification alert alert-${type} alert-dismissible fade show`;
+        notification.innerHTML = `
+            <span>${message}</span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        Object.assign(notification.style, {
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: '1100',
+            minWidth: '300px',
+            maxWidth: '90vw'
+        });
+        
         notification.querySelector('.btn-close').addEventListener('click', () => {
             notification.remove();
         });
+        
         document.body.appendChild(notification);
-        setTimeout(() => {
-            notification.remove();
-        }, duration);
+        
+        if (duration > 0) {
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, duration);
+        }
     };
 
-    // ========== FUNÇÃO DE ATUALIZAÇÃO DO LUCRO MENSAL ==========
-    function updateMonthlyProfit() {
-        const subtotal = parseFloat(document.getElementById('subtotal').dataset.raw) || 0;
-        const total = parseFloat(document.getElementById('totalRaw').dataset.value) || 0;
-        
-        let totalProfitWeighted = 0;
-        document.querySelectorAll('.product-item').forEach(item => {
-            const select = item.querySelector('.product-select');
-            const quantity = parseInt(item.querySelector('.quantity').value) || 0;
-            const price = parseFloat(select.options[select.selectedIndex].dataset.price || 0);
-            const profitPercent = parseFloat(select.options[select.selectedIndex].dataset.profit || 0);
-            totalProfitWeighted += price * quantity * profitPercent;
-        });
-        let weightedProfit = subtotal > 0 ? (totalProfitWeighted / subtotal) : 0;
-        
-        // Obtém o número de parcelas do método primário (data-index="1")
-        const primaryInstallmentsInput = document.querySelector('.installments[data-index="1"]');
-        const primaryInstallments = primaryInstallmentsInput ? parseInt(primaryInstallmentsInput.value) || 1 : 1;
-        
-        let monthlyProfit = (total / primaryInstallments) - (subtotal / primaryInstallments) - (((subtotal * weightedProfit) / 100) / primaryInstallments);
-        
-        document.querySelector('.profit p:last-child').textContent = `R$ ${monthlyProfit.toFixed(2)}`;
-    }
-
-    // ========== EVENTO PARA ALTERAÇÃO DA FORMA DE PAGAMENTO ==========
-    document.getElementById('togglePaymentMethod').addEventListener('change', function() {
+    // ========== IMPROVED PAYMENT METHOD TOGGLE ==========
+    const handlePaymentMethodToggle = function() {
         const paymentMethod2 = document.getElementById('paymentMethod2');
         const layoutPaymentMethods = document.querySelector('.payment-methods-container');
         
+        if (!paymentMethod2 || !layoutPaymentMethods) {
+            console.error('Payment method elements not found');
+            return;
+        }
+        
         if (this.checked) {
-            // Exibe o container inteiro do método 2
+            // Show second payment method
             paymentMethod2.classList.remove('d-none');
-            // Se necessário, copie as opções do método 1 para o método 2
-            paymentMethod2.querySelector('.payment-method').innerHTML = document.querySelector('.payment-method[data-index="1"]').innerHTML;
+            
+            // Copy options from first method if needed
+            const firstMethodSelect = document.querySelector('.payment-method[data-index="1"]');
+            const secondMethodSelect = paymentMethod2.querySelector('.payment-method');
+            
+            if (firstMethodSelect && secondMethodSelect && secondMethodSelect.options.length <= 1) {
+                Array.from(firstMethodSelect.options).forEach((option, index) => {
+                    if (index > 0) {
+                        secondMethodSelect.appendChild(option.cloneNode(true));
+                    }
+                });
+            }
+            
             layoutPaymentMethods.classList.remove('justify-content-start');
             layoutPaymentMethods.classList.add('justify-content-center');
-            // Define os campos como obrigatórios
-            paymentMethod2.querySelector('.payment-method').required = true;
-            paymentMethod2.querySelector('.payment-amount').required = true;
+            
+            // Set fields as required
+            const methodSelect = paymentMethod2.querySelector('.payment-method');
+            const amountInput = paymentMethod2.querySelector('.payment-amount');
+            if (methodSelect) methodSelect.required = true;
+            if (amountInput) amountInput.required = true;
+            
         } else {
-            // Oculta o container inteiro do método 2
+            // Hide second payment method
             paymentMethod2.classList.add('d-none');
             layoutPaymentMethods.classList.remove('justify-content-center');
             layoutPaymentMethods.classList.add('justify-content-start');
-            // Limpa valores e remove obrigatoriedade
-            paymentMethod2.querySelector('.payment-method').required = false;
-            paymentMethod2.querySelector('.payment-amount').required = false;
-            paymentMethod2.querySelector('.payment-method').value = '';
-            paymentMethod2.querySelector('.payment-amount').value = '';
-        }
-        calculateTotals();
-    });    
-
-    const populatePaymentMethods = () => {
-        const baseOptions = document.querySelector('[data-index="1"]').options;
-        document.querySelectorAll('.payment-method').forEach(select => {
-            if (select.options.length <= 1) {
-                Array.from(baseOptions).forEach((option, index) => {
-                    if (index > 0) select.appendChild(option.cloneNode(true));
-                });
+            
+            // Remove requirements and clear values
+            const methodSelect = paymentMethod2.querySelector('.payment-method');
+            const amountInput = paymentMethod2.querySelector('.payment-amount');
+            
+            if (methodSelect) {
+                methodSelect.required = false;
+                methodSelect.value = '';
             }
-        });
+            if (amountInput) {
+                amountInput.required = false;
+                amountInput.value = '';
+            }
+        }
+        
+        calculateTotals();
     };
 
-    const addProductRow = () => {
+    // ========== IMPROVED PRODUCT MANAGEMENT ==========
+    const addProductRow = async () => {
         if (!productsData || productsData.length === 0) {
-            showNotification('Carregando produtos...', 'warning');
-            loadProducts().then(() => addProductRow());
+            showNotification('Loading products...', 'info', 2000);
+            try {
+                await loadProducts();
+                if (productsData.length === 0) {
+                    showNotification('No products available', 'warning');
+                    return;
+                }
+            } catch (error) {
+                showNotification('Failed to load products', 'danger');
+                return;
+            }
+        }
+        
+        const container = document.getElementById('productsContainer');
+        if (!container) {
+            console.error('Products container not found');
             return;
         }
-        const container = document.getElementById('productsContainer');
+        
         const index = container.children.length + 1;
         const html = `
             <div class="product-item mb-3" data-index="${index}">
                 <div class="input-group">
-                    <button type="button" class="btn btn-outline-danger remove-product">
+                    <button type="button" class="btn btn-outline-danger remove-product" title="Remove product">
                         <i class="bi bi-dash-circle"></i>
                     </button>
                     <select class="form-select product-select" required>
-                        <option value="">Selecione um produto...</option>
-                        ${productsData.map(p => {
-                            const price = (p.promo_price ?? p.price ?? 0);
+                        <option value="">Select a product...</option>
+                        ${productsData.map(product => {
+                            const price = (product.promo_price ?? product.original_price ?? 0);
                             const formattedPrice = String(price).replace(',', '.');
+                            const stockText = product.stock ? `(${product.stock} in stock)` : '(No stock info)';
                             return `
-                                <option value="${p.id}" 
+                                <option value="${product.id}" 
                                         data-price="${formattedPrice}"
-                                        data-profit="${p.profit_percentage || 0}"
-                                        data-stock="${p.stock}">
-                                    ${p.name} - ${p.brand} (${p.stock} em estoque)
+                                        data-profit="${product.profit_percentage || 0}"
+                                        data-stock="${product.stock || 0}"
+                                        ${product.stock === 0 ? 'disabled' : ''}>
+                                    ${product.name} - ${product.brand} ${stockText}
                                 </option>
                             `;
                         }).join('')}
@@ -150,6 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
         `;
+        
         container.insertAdjacentHTML('beforeend', html);
         setupProductRowEvents(index);
         calculateTotals();
@@ -157,167 +242,582 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const setupProductRowEvents = (index) => {
         const row = document.querySelector(`[data-index="${index}"]`);
+        if (!row) return;
         
-        row.querySelector('.remove-product').addEventListener('click', () => {
-            row.remove();
-            calculateTotals();
-        });
-        row.querySelector('.product-select').addEventListener('change', function() {
-            const selectedOption = this.options[this.selectedIndex];
-            const rawPrice = parseFloat(selectedOption?.dataset?.price || 0);
-            const priceElement = row.querySelector('.product-price');
-            priceElement.dataset.rawPrice = rawPrice.toFixed(2);
-            priceElement.textContent = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(rawPrice);
-            calculateTotals();
-        });
-        row.querySelector('.quantity').addEventListener('input', () => {
-            calculateTotals();
-        });
-    };
-
-    const setupEventListeners = () => {
-        document.getElementById('showNewSaleForm').addEventListener('click', () => {
-            document.getElementById('newSaleForm').classList.toggle('d-none');
-        });
-        document.getElementById('addProductBtn').addEventListener('click', addProductRow);
-        document.querySelectorAll('.payment-method').forEach(select => {
-            select.addEventListener('change', handlePaymentMethodChange);
-        });
-        document.querySelectorAll('.payment-amount.active-payment:not([disabled])').forEach(input => {
-            input.addEventListener('input', function(e) {
-                const rawValue = formatCurrencyInput(e.target.value);
-                e.target.value = formatDisplayCurrency(rawValue);
+        const removeBtn = row.querySelector('.remove-product');
+        const productSelect = row.querySelector('.product-select');
+        const quantityInput = row.querySelector('.quantity');
+        
+        if (removeBtn) {
+            removeBtn.addEventListener('click', () => {
+                row.remove();
                 calculateTotals();
             });
-        });
-        document.querySelectorAll('.payment-amount').forEach(input => {
-            input.addEventListener('focus', function() {
-                 this.dataset.editing = "true";
-            });
-            input.addEventListener('blur', function() {
-                 this.dataset.editing = "false";
-                 const rawValue = formatCurrencyInput(this.value);
-                 this.value = formatDisplayCurrency(rawValue);
-                 calculateTotals(); // Atualiza os totais após formatação final
-            });
-        });
-        document.getElementById('saleForm').addEventListener('submit', handleSaleSubmit);
-        document.body.addEventListener('change', (e) => {
-            if (e.target.classList.contains('payment-method')) {
-                handlePaymentMethodChange(e);
-            }
-        });
-        document.body.addEventListener('input', (e) => {
-            if (e.target.classList.contains('payment-amount')) {
+        }
+        
+        if (productSelect) {
+            productSelect.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                const rawPrice = parseFloat(selectedOption?.dataset?.price || 0);
+                const stock = parseInt(selectedOption?.dataset?.stock || 0);
+                const priceElement = row.querySelector('.product-price');
+                const quantityInput = row.querySelector('.quantity');
+                
+                if (priceElement) {
+                    priceElement.dataset.rawPrice = rawPrice.toFixed(2);
+                    priceElement.textContent = formatCurrency(rawPrice);
+                }
+                
+                // Update quantity max based on stock
+                if (quantityInput && stock > 0) {
+                    quantityInput.max = stock;
+                    if (parseInt(quantityInput.value) > stock) {
+                        quantityInput.value = stock;
+                    }
+                }
+                
                 calculateTotals();
-            }
-        });
+            });
+        }
+        
+        if (quantityInput) {
+            quantityInput.addEventListener('input', function() {
+                const selectedOption = productSelect.options[productSelect.selectedIndex];
+                const stock = parseInt(selectedOption?.dataset?.stock || 0);
+                
+                if (stock > 0 && parseInt(this.value) > stock) {
+                    this.value = stock;
+                    showNotification(`Maximum quantity available: ${stock}`, 'warning', 3000);
+                }
+                
+                calculateTotals();
+            });
+        }
     };
 
-    // === FUNÇÃO ATUALIZADA PARA CONVERTER VALOR DE MOEDA ===
+    // ========== IMPROVED CURRENCY HANDLING ==========
     const parseCurrencyInput = (value) => {
-        if (!value) return 0;
-        // Remove "R$", espaços e outros caracteres não numéricos, remove pontos e converte vírgula para ponto
-        const cleaned = value.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(/,/g, '.');
-        return parseFloat(cleaned) || 0;
+        if (!value || value === '') return 0;
+        
+        // Handle different input formats
+        const cleaned = String(value)
+            .replace(/[^\d,.-]/g, '') // Remove non-numeric characters except comma, dot, minus
+            .replace(/\./g, '') // Remove thousand separators (dots)
+            .replace(/,/g, '.'); // Convert comma to dot for decimal
+        
+        const parsed = parseFloat(cleaned);
+        return isNaN(parsed) ? 0 : parsed;
     };
 
-    const formatCurrencyInput = (value) => {
-        let cleaned = value.replace(/[^\d,]/g, '');
-        const parts = cleaned.split(',');
-        if (parts.length > 2) cleaned = parts[0] + ',' + parts.slice(1).join('');
-        return cleaned;
+    const formatCurrency = (value) => {
+        const num = Number(value);
+        return new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(num);
     };
 
     const formatDisplayCurrency = (value) => {
-        return Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const num = Number(value);
+        return num.toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
     };
 
-    const calculateTotals = () => {
+    // ========== IMPROVED CALCULATION SYSTEM ==========
+    const calculateTotals = debounce(() => {
         let subtotal = 0;
+        
+        // Calculate subtotal from products
         document.querySelectorAll('.product-item').forEach(item => {
             const priceElement = item.querySelector('.product-price');
-            const price = parseFloat(priceElement.dataset.rawPrice || 0);
-            const quantity = parseInt(item.querySelector('.quantity').value) || 0;
-            subtotal += price * quantity;
+            const quantityInput = item.querySelector('.quantity');
+            
+            if (priceElement && quantityInput) {
+                const price = parseFloat(priceElement.dataset.rawPrice || 0);
+                const quantity = parseInt(quantityInput.value) || 0;
+                subtotal += price * quantity;
+            }
         });
-      
+        
         let totalInterest = 0;
         let totalBase = 0;
+        
+        // Calculate payment totals
         document.querySelectorAll('.payment-method').forEach(method => {
             if (!isVisible(method)) return;
+            
             const dataIndex = method.getAttribute('data-index');
             const amountInput = document.querySelector(`.payment-amount[data-index="${dataIndex}"]`);
-            let baseValue = parseCurrencyInput(amountInput.value);
+            
+            if (!amountInput) return;
+            
+            const baseValue = parseCurrencyInput(amountInput.value);
             let interest = 0;
             let paymentTotal = baseValue;
             
+            // Calculate interest for credit methods
             if (['credito', 'pix_credito'].includes(method.value)) {
-                const interestRate = parseFloat(
-                    document.querySelector(`.interest-field[data-index="${dataIndex}"] .interest-rate`)?.value || 0
-                );
+                const interestRateInput = document.querySelector(`.interest-field[data-index="${dataIndex}"] .interest-rate`);
+                const interestRate = parseFloat(interestRateInput?.value || 0);
                 interest = baseValue * (interestRate / 100);
                 paymentTotal = baseValue + interest;
+                
+                // Update interest display
                 const interestDetail = document.querySelector(`.interest-detail[data-index="${dataIndex}"]`);
                 if (interestDetail) {
-                    interestDetail.innerHTML = `<small class="text-muted">Juros: ${formatDisplayCurrency(interest)}</small>`;
+                    interestDetail.innerHTML = `<small class="text-muted">Interest: ${formatDisplayCurrency(interest)}</small>`;
                 }
             }
             
             totalInterest += interest;
             totalBase += baseValue;
             
+            // Update method total display
             const methodTotal = document.querySelector(`.method-total[data-index="${dataIndex}"]`);
             if (methodTotal) {
                 methodTotal.textContent = `Total: ${formatDisplayCurrency(paymentTotal)}`;
             }
-            // Atualiza o input somente se não estiver em edição
-            if (amountInput.dataset.editing !== "true") {
-                amountInput.value = formatDisplayCurrency(baseValue);
-            }
         });
         
         const total = subtotal + totalInterest;
-        document.getElementById('subtotal').textContent = formatDisplayCurrency(subtotal);
-        document.getElementById('subtotal').dataset.raw = subtotal.toFixed(2);
-        document.getElementById('totalRaw').dataset.subtotal = subtotal.toFixed(2);
-        document.getElementById('totalRaw').dataset.value = total.toFixed(2);
-        document.getElementById('totalAmount').textContent = formatDisplayCurrency(total);
-      
-        const paymentMethod2 = document.getElementById('paymentMethod2');
-        const isSecondMethodActive = !paymentMethod2.classList.contains('d-none');
-        const firstPaymentInput = document.querySelector('.payment-amount[data-index="1"]');
-        if (!isSecondMethodActive) {
-            firstPaymentInput.value = formatDisplayCurrency(subtotal);
-            firstPaymentInput.setAttribute('readonly', 'true');
-        } else {
-            firstPaymentInput.removeAttribute('readonly');
+        
+        // Update display elements
+        const subtotalElement = document.getElementById('subtotal');
+        const totalRawElement = document.getElementById('totalRaw');
+        const totalAmountElement = document.getElementById('totalAmount');
+        
+        if (subtotalElement) {
+            subtotalElement.textContent = formatDisplayCurrency(subtotal);
+            subtotalElement.dataset.raw = subtotal.toFixed(2);
         }
         
-        updateMonthlyProfit();
+        if (totalRawElement) {
+            totalRawElement.dataset.subtotal = subtotal.toFixed(2);
+            totalRawElement.dataset.value = total.toFixed(2);
+        }
+        
+        if (totalAmountElement) {
+            totalAmountElement.textContent = formatDisplayCurrency(total);
+        }
+        
+        // Handle single payment method auto-fill
+        const paymentMethod2 = document.getElementById('paymentMethod2');
+        const isSecondMethodActive = paymentMethod2 && !paymentMethod2.classList.contains('d-none');
+        const firstPaymentInput = document.querySelector('.payment-amount[data-index="1"]');
+        
+        if (firstPaymentInput) {
+            if (!isSecondMethodActive) {
+                firstPaymentInput.value = formatDisplayCurrency(subtotal);
+                firstPaymentInput.setAttribute('readonly', 'true');
+            } else {
+                firstPaymentInput.removeAttribute('readonly');
+            }
+        }
+    }, 300);
+
+    // ========== IMPROVED VALIDATION ==========
+    const validateSale = () => {
+        let isValid = true;
+        clearErrors();
+        const errorMessages = [];
+        
+        // Validate client selection
+        const clientSelect = document.getElementById('clientSelect');
+        if (!clientSelect || !clientSelect.value) {
+            errorMessages.push('Please select a client');
+            if (clientSelect) clientSelect.classList.add('is-invalid');
+            isValid = false;
+        }
+        
+        // Validate products
+        const products = document.querySelectorAll('.product-item');
+        if (products.length === 0) {
+            errorMessages.push('Add at least one product');
+            isValid = false;
+        }
+        
+        // Validate product quantities against stock
+        products.forEach((item, index) => {
+            const productSelect = item.querySelector('.product-select');
+            const quantityInput = item.querySelector('.quantity');
+            
+            if (productSelect && quantityInput) {
+                const selectedOption = productSelect.options[productSelect.selectedIndex];
+                const stock = parseInt(selectedOption?.dataset?.stock || 0);
+                const quantity = parseInt(quantityInput.value || 0);
+                
+                if (stock > 0 && quantity > stock) {
+                    errorMessages.push(`Product ${index + 1}: Quantity (${quantity}) exceeds available stock (${stock})`);
+                    quantityInput.classList.add('is-invalid');
+                    isValid = false;
+                }
+            }
+        });
+        
+        // Validate payment amounts
+        const subtotal = parseFloat(document.getElementById('totalRaw')?.dataset?.subtotal || 0);
+        const totalCalculated = parseFloat(document.getElementById('totalRaw')?.dataset?.value || 0);
+        let totalBase = 0;
+        let totalWithInterest = 0;
+        
+        document.querySelectorAll('.payment-amount').forEach(input => {
+            if (!isVisible(input)) return;
+            
+            const numericValue = parseCurrencyInput(input.value);
+            const paymentGroup = input.closest('.input-group');
+            const method = paymentGroup?.querySelector('.payment-method')?.value;
+            const interestRateInput = paymentGroup?.querySelector('.interest-rate');
+            const interestRate = parseFloat(interestRateInput?.value || 0);
+            
+            if (numericValue <= 0 || isNaN(numericValue)) {
+                input.classList.add('is-invalid');
+                errorMessages.push(`Invalid payment amount: ${input.value}`);
+                isValid = false;
+            }
+            
+            totalBase += numericValue;
+            
+            if (['credito', 'pix_credito'].includes(method)) {
+                totalWithInterest += numericValue * (1 + interestRate / 100);
+            } else {
+                totalWithInterest += numericValue;
+            }
+        });
+        
+        // Validate payment totals
+        if (Math.abs(totalBase - subtotal) > CONFIG.CALCULATION_PRECISION) {
+            errorMessages.push(
+                `Payment sum (${formatCurrency(totalBase)}) must equal subtotal (${formatCurrency(subtotal)})`
+            );
+            isValid = false;
+        }
+        
+        if (Math.abs(totalWithInterest - totalCalculated) > CONFIG.CALCULATION_PRECISION) {
+            errorMessages.push(
+                `Total mismatch: Calculated ${formatCurrency(totalWithInterest)}, Expected ${formatCurrency(totalCalculated)}`
+            );
+            isValid = false;
+        }
+        
+        if (errorMessages.length > 0) {
+            showNotification(errorMessages.join('<br>'), 'danger', 8000);
+        }
+        
+        return isValid;
     };
+
+    // ========== IMPROVED FORM SUBMISSION ==========
+    const handleSaleSubmit = async (e) => {
+        e.preventDefault();
+        clearErrors();
+        
+        if (!validateSale()) {
+            return;
+        }
+        
+        showLoading();
+        
+        try {
+            const saleData = {
+                clientId: document.getElementById('clientSelect').value,
+                saleDate: document.getElementById('saleDate').value,
+                products: Array.from(document.querySelectorAll('.product-item')).map(item => {
+                    const select = item.querySelector('select');
+                    const selectedOption = select.options[select.selectedIndex];
+                    return {
+                        productId: select.value,
+                        quantity: parseInt(item.querySelector('.quantity').value),
+                        price: parseFloat(selectedOption.dataset.price)
+                    };
+                }),
+                payments: Array.from(document.querySelectorAll('.payment-method'))
+                    .filter(method => isVisible(method))
+                    .map(method => {
+                        const dataIndex = method.getAttribute('data-index');
+                        const amountInput = document.querySelector(`.payment-amount[data-index="${dataIndex}"]`);
+                        const installmentsInput = document.querySelector(`.installments[data-index="${dataIndex}"]`);
+                        const interestInput = document.querySelector(`.interest-field[data-index="${dataIndex}"] .interest-rate`);
+                        const statusInput = document.querySelector(`.payment-status[data-index="${dataIndex}"]`);
+                        
+                        return {
+                            method: method.value,
+                            amount: parseCurrencyInput(amountInput.value),
+                            interest: parseFloat(interestInput?.value || 0),
+                            installments: parseInt(installmentsInput?.value || 1),
+                            status: statusInput?.checked ? 'paid' : 'pending'
+                        };
+                    })
+                    .filter(payment => payment.method && payment.amount > 0)
+            };
+            
+            console.log('Submitting sale data:', saleData);
+            
+            const response = await retryFetch('/api/vendas', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(saleData)
+            });
+            
+            const result = await response.json();
+            
+            showNotification('Sale registered successfully!', 'success', 3000);
+            
+            // Reset form after successful submission
+            setTimeout(() => {
+                document.getElementById('saleForm').reset();
+                document.getElementById('productsContainer').innerHTML = '';
+                calculateTotals();
+            }, 1000);
+            
+        } catch (error) {
+            console.error('Sale submission error:', error);
+            showNotification(
+                `Failed to register sale: ${error.message}`,
+                'danger',
+                8000
+            );
+        } finally {
+            hideLoading();
+        }
+    };
+
+    // ========== IMPROVED UTILITY FUNCTIONS ==========
+    const showLoading = () => {
+        hideLoading(); // Remove any existing loader
+        
+        const loader = document.createElement('div');
+        loader.className = 'overlay-loading';
+        loader.innerHTML = `
+            <div class="d-flex flex-column align-items-center">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <div class="text-muted">Processing sale...</div>
+            </div>
+        `;
+        
+        document.body.appendChild(loader);
+    };
+
+    const hideLoading = () => {
+        document.querySelectorAll('.overlay-loading').forEach(loader => loader.remove());
+    };
+
+    const clearErrors = () => {
+        document.querySelectorAll('.is-invalid').forEach(element => {
+            element.classList.remove('is-invalid');
+        });
+        
+        const errorContainer = document.getElementById('errorContainer');
+        if (errorContainer) {
+            errorContainer.innerHTML = '';
+        }
+        
+        document.querySelectorAll('.notification').forEach(notification => {
+            notification.remove();
+        });
+    };
+
+    // ========== EVENT LISTENERS SETUP ==========
+    const setupEventListeners = () => {
+        // Toggle payment method
+        const togglePaymentMethod = document.getElementById('togglePaymentMethod');
+        if (togglePaymentMethod) {
+            togglePaymentMethod.addEventListener('change', handlePaymentMethodToggle);
+        }
+        
+        // Show/hide new sale form
+        const showNewSaleForm = document.getElementById('showNewSaleForm');
+        if (showNewSaleForm) {
+            showNewSaleForm.addEventListener('click', () => {
+                const form = document.getElementById('newSaleForm');
+                if (form) {
+                    form.classList.toggle('d-none');
+                }
+            });
+        }
+        
+        // Add product button
+        const addProductBtn = document.getElementById('addProductBtn');
+        if (addProductBtn) {
+            addProductBtn.addEventListener('click', addProductRow);
+        }
+        
+        // Currency input handling
+        document.body.addEventListener('keydown', e => {
+            const input = e.target;
+            if (!input.classList.contains('payment-amount')) return;
+            
+            if (input.dataset.editing !== "true") {
+                input.value = formatDisplayCurrency(parseCurrencyInput(input.value));
+            }
+            
+            // Handle currency input with cents mapping
+            if (/^\d$/.test(e.key) || e.key === 'Backspace' || e.key === 'Delete') {
+                e.preventDefault();
+                let cents = centsMap.get(input) || 0;
+                
+                if (/^\d$/.test(e.key)) {
+                    cents = cents * 10 + Number(e.key);
+                } else {
+                    cents = Math.floor(cents / 10);
+                }
+                
+                centsMap.set(input, cents);
+                updateCurrencyInput(input);
+            }
+        });
+        
+        // Focus handling for currency inputs
+        document.body.addEventListener('focusin', e => {
+            const input = e.target;
+            if (!input.classList.contains('payment-amount')) return;
+            
+            const raw = parseCurrencyInput(input.value);
+            centsMap.set(input, Math.round(raw * 100));
+        });
+        
+        document.body.addEventListener('focusout', e => {
+            const input = e.target;
+            if (!input.classList.contains('payment-amount')) return;
+            updateCurrencyInput(input);
+        });
+        
+        // Payment method changes
+        document.body.addEventListener('change', (e) => {
+            if (e.target.classList.contains('payment-method')) {
+                handlePaymentMethodChange(e);
+            }
+        });
+        
+        // Payment amount changes
+        document.body.addEventListener('input', (e) => {
+            if (e.target.classList.contains('payment-amount')) {
+                calculateTotals();
+            }
+        });
+        
+        // Form submission
+        const saleForm = document.getElementById('saleForm');
+        if (saleForm) {
+            saleForm.addEventListener('submit', handleSaleSubmit);
+        }
+        
+        // Installment payment marking
+        document.body.addEventListener('click', async e => {
+            const btn = e.target.closest('button.mark-installment-paid');
+            if (!btn) return;
+            
+            const installmentId = btn.dataset.installmentId;
+            if (!installmentId) {
+                console.error('Installment ID not found on button', btn);
+                return;
+            }
+            
+            if (!confirm('Mark this installment as paid?')) return;
+            
+            try {
+                const response = await retryFetch(`/api/installments/${installmentId}/pay`, {
+                    method: 'PATCH'
+                });
+                
+                btn.replaceWith('<i class="bi bi-check-circle-fill text-success" title="Paid"></i>');
+                showNotification('Installment marked as paid', 'success', 3000);
+                
+            } catch (error) {
+                console.error('Failed to mark installment as paid:', error);
+                showNotification('Failed to update payment status', 'danger');
+            }
+        });
+    };
+
+    // Helper function for currency input updates
+    const updateCurrencyInput = (input) => {
+        const cents = centsMap.get(input) || 0;
+        const value = (cents / 100).toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+        input.value = value;
+        calculateTotals();
+    };
+
+    // ========== REMAINING FUNCTIONS (SIMPLIFIED) ==========
+    const populatePaymentMethods = () => {
+        const baseSelect = document.querySelector('[data-index="1"]');
+        if (!baseSelect) return;
+        
+        const baseOptions = baseSelect.options;
+        document.querySelectorAll('.payment-method').forEach(select => {
+            if (select.options.length <= 1) {
+                Array.from(baseOptions).forEach((option, index) => {
+                    if (index > 0) {
+                        select.appendChild(option.cloneNode(true));
+                    }
+                });
+            }
+        });
+    };
+
+    function handlePaymentMethodChange(event) {
+        const dataIndex = event.target.getAttribute('data-index');
+        const method = event.target.value;
+        const isCredit = ['credito', 'pix_credito'].includes(method);
+      
+        // Busca direta pelos elementos corretos
+        const interestField     = document.querySelector(`.interest-field[data-index="${dataIndex}"]`);
+        const installmentsField = document.querySelector(`.installments[data-index="${dataIndex}"]`);
+      
+        if (interestField) {
+          interestField.style.display = isCredit ? 'block' : 'none';
+        }
+        if (installmentsField) {
+          installmentsField.style.display = isCredit ? 'flex' : 'none';
+        }
+        
+        // Recalculate totals
+        calculateTotals();
+    };
+
+    function setupPaymentMethodFields() {
+        document.querySelectorAll('.payment-method').forEach(select => {
+          select.removeEventListener('change', handlePaymentMethodChange);
+          select.addEventListener('change', handlePaymentMethodChange);
+          // dispara a atualização inicial
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    }
 
     const setupPaymentMethodAutofill = () => {
         document.querySelectorAll('.payment-method').forEach(select => {
             select.addEventListener('change', function() {
-                const activePayments = [];
-                document.querySelectorAll('.payment-method').forEach(method => {
-                    if (isVisible(method)) activePayments.push(method);
-                });
+                const activePayments = Array.from(document.querySelectorAll('.payment-method'))
+                    .filter(method => isVisible(method));
+                
                 if (activePayments.length === 1) {
-                    const totalValue = parseFloat(document.getElementById('totalRaw').dataset.value);
-                    const method = activePayments[0].value;
-                    const dataIndex = activePayments[0].getAttribute('data-index');
+                    const totalRaw = document.getElementById('totalRaw');
+                    const totalValue = parseFloat(totalRaw?.dataset?.value || 0);
+                    const dataIndex = this.getAttribute('data-index');
                     const amountInput = document.querySelector(`.payment-amount[data-index="${dataIndex}"]`);
-                    if (amountInput) {
-                        if (['credito', 'pix_credito'].includes(method)) {
-                            const interestRate = parseFloat(document.querySelector(`.interest-field[data-index="${dataIndex}"] .interest-rate`)?.value) || 0;
-                            amountInput.value = (totalValue / (1 + interestRate/100)).toFixed(2).replace('.', ',');
+                    
+                    if (amountInput && totalValue > 0) {
+                        if (['credito', 'pix_credito'].includes(this.value)) {
+                            const interestRateInput = document.querySelector(`.interest-field[data-index="${dataIndex}"] .interest-rate`);
+                            const interestRate = parseFloat(interestRateInput?.value || 0);
+                            const baseAmount = totalValue / (1 + interestRate / 100);
+                            amountInput.value = formatDisplayCurrency(baseAmount);
                         } else {
-                            amountInput.value = totalValue.toFixed(2).replace('.', ',');
+                            amountInput.value = formatDisplayCurrency(totalValue);
                         }
+                        calculateTotals();
                     }
-                    calculateTotals();
                 }
             });
         });
@@ -327,228 +827,172 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.interest-rate').forEach(input => {
             input.addEventListener('input', function() {
                 const dataIndex = this.closest('.interest-field').getAttribute('data-index');
-                const method = document.querySelector(`.payment-method[data-index="${dataIndex}"]`).value;
-                if (['credito', 'pix_credito'].includes(method)) {
-                    const subtotal = parseFloat(document.getElementById('subtotal').dataset.raw);
-                    const interestRate = parseFloat(this.value) || 0;
+                const method = document.querySelector(`.payment-method[data-index="${dataIndex}"]`);
+                
+                if (method && ['credito', 'pix_credito'].includes(method.value)) {
+                    const subtotalElement = document.getElementById('subtotal');
+                    const subtotal = parseFloat(subtotalElement?.dataset?.raw || 0);
                     const amountInput = document.querySelector(`.payment-amount[data-index="${dataIndex}"]`);
-                    if (amountInput) {
-                        amountInput.value = (subtotal).toFixed(2).replace('.', ',');
+                    
+                    if (amountInput && subtotal > 0) {
+                        amountInput.value = formatDisplayCurrency(subtotal);
+                        calculateTotals();
                     }
-                    calculateTotals();
                 }
             });
         });
     };
 
-    const handlePaymentMethodChange = (event) => {
-        const dataIndex = event.target.getAttribute('data-index');
-        const interestField = document.querySelector(`.interest-field[data-index="${dataIndex}"]`);
-        // Exibe o campo se o método for 'credito' ou 'pix_credito'
-        if (['credito', 'pix_credito'].includes(event.target.value)) {
-          interestField.style.display = 'block';
-        } else {
-          interestField.style.display = 'none';
-        }
-        calculateTotals();
-    };
-
-    const clearErrors = () => {
-        document.querySelectorAll('.is-invalid').forEach(element => {
-            element.classList.remove('is-invalid');
-        });
-        const errorContainer = document.getElementById('errorContainer');
-        if (errorContainer) {
-            errorContainer.innerHTML = '';
-        }
-        document.querySelectorAll('.notification').forEach(notification => {
-            notification.remove();
-        });
-    };
-
-    const validateSale = () => {
-        let isValid = true;
-        clearErrors();
-        const errorMessages = [];
-        
-        if (!document.getElementById('clientSelect').value) {
-            errorMessages.push('Selecione um cliente');
-            isValid = false;
-        }
-        
-        const products = document.querySelectorAll('.product-item');
-        if (products.length === 0) {
-            errorMessages.push('Adicione pelo menos um produto');
-            isValid = false;
-        }
-    
-        const subtotal = parseFloat(document.getElementById('totalRaw').dataset.subtotal || 0);
-        const totalCalculated = parseFloat(document.getElementById('totalRaw').dataset.value || 0);
-        let totalBase = 0;
-        let totalWithInterest = 0;
-    
-        document.querySelectorAll('.payment-amount').forEach(input => {
-            if (!isVisible(input)) return; // ignora inputs ocultos
-            const numericValue = parseCurrencyInput(input.value);
-            const method = input.closest('.input-group').querySelector('.payment-method').value;
-            const interestRate = parseFloat(input.closest('.input-group').querySelector('.interest-rate')?.value || 0);
-    
-            if (numericValue <= 0 || isNaN(numericValue)) {
-                input.classList.add('is-invalid');
-                errorMessages.push(`Valor inválido no pagamento: ${input.value}`);
-                isValid = false;
-            }
-    
-            totalBase += numericValue;
-            if (['credito', 'pix_credito'].includes(method)) {
-                totalWithInterest += numericValue * (1 + interestRate/100);
-            } else {
-                totalWithInterest += numericValue;
-            }
-        });
-    
-        if (Math.abs(totalBase - subtotal) > 0.01) {
-            errorMessages.push(
-                `A soma dos pagamentos (${formatCurrency(totalBase)}) deve ser igual ao subtotal (${formatCurrency(subtotal)})`
-            );
-            isValid = false;
-        }
-    
-        if (Math.abs(totalWithInterest - totalCalculated) > 0.01) {
-            errorMessages.push(
-                `Diferença total:<br>
-                Calculado (com juros): ${formatCurrency(totalWithInterest)}<br>
-                Esperado: ${formatCurrency(totalCalculated)}`
-            );
-            isValid = false;
-        }
-    
-        if (errorMessages.length > 0) {
-            showNotification(errorMessages.join('<br>'), 'danger', 5000);
-        }
-    
-        return isValid;
-    };
-
-    const handleSaleSubmit = async (e) => {
-        e.preventDefault();
-        clearErrors();
-      
-        if (!validateSale()) return;
-      
-        showLoading();
-        let saleData = {};
-        let response; // Declarada aqui para uso no catch
-        try {
-            saleData = {
-                clientId: document.getElementById('clientSelect').value,
-                saleDate: document.getElementById('saleDate').value,
-                products: Array.from(document.querySelectorAll('.product-item')).map(item => {
-                    const select = item.querySelector('select');
-                    return {
-                        productId: select.value,
-                        quantity: parseInt(item.querySelector('.quantity').value),
-                        price: parseFloat(select.options[select.selectedIndex].dataset.price)
-                    };
-                }),
-                payments: Array.from(document.querySelectorAll('.payment-method')).map(method => {
-                    if (!isVisible(method)) return null;
-                    const dataIndex = method.getAttribute('data-index');
-                    const amountInput = document.querySelector(`.payment-amount[data-index="${dataIndex}"]`);
-                    const installmentsInput = document.querySelector(`.installments[data-index="${dataIndex}"]`);
-                    return {
-                        method: method.value,
-                        amount: parseCurrencyInput(amountInput.value),
-                        interest: parseFloat(document.querySelector(`.interest-field[data-index="${dataIndex}"] .interest-rate`)?.value) || 0,
-                        installments: parseInt(installmentsInput.value),
-                        status: document.querySelector(`.payment-status[data-index="${dataIndex}"]`).checked ? 'paid' : 'pending'
-                    };
-                }).filter(p => p && p.method && p.amount > 0)
-            };
-            console.log("[DEBUG] Enviando requisição para /api/vendas", saleData);
-            response = await fetch('/api/vendas', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(saleData)
-            });
-            console.log("[DEBUG] Resposta recebida:", response.status);
-            const result = await response.json();
-            if (!response.ok) {
-                throw new Error(result.error || 'Erro desconhecido');
-            }
-            showNotification('Venda registrada com sucesso!', 'success', 5000);
-            setTimeout(() => { location.reload(); }, 2000);
-        } catch (error) {
-            console.error('Erro detalhado:', error);
-            showNotification(`Erro: ${error.message} (Status: ${response?.status || 'Desconhecido'})`, 'danger', 5000);
-        } finally {
-            document.querySelector('.overlay-loading')?.remove();
-        }
-        console.log('Enviando dados:', saleData);
-    };
-
-    const formatCurrency = (value) => {
-        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
-    };
-
-    const showLoading = () => {
-        const loader = document.createElement('div');
-        loader.className = 'overlay-loading';
-        loader.innerHTML = `
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Carregando...</span>
-            </div>
-        `;
-        document.body.appendChild(loader);
-    };
-
-    // ========== INICIALIZAÇÃO ==========
-    const initialize = async () => {
-        await loadProducts();
-        await loadCampaigns();
-        populatePaymentMethods();
-        setupEventListeners();
-        setupPaymentMethodAutofill();
-        setupInterestRateListeners();
-        calculateTotals();
-    };
-
-    const style = document.createElement('style');
-    style.textContent = `
-        .overlay-loading {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(255, 255, 255, 0.8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-        }
-    `;
-    document.head.appendChild(style);
-
+    // ========== GLOBAL FUNCTIONS ==========
     window.loadSale = async (saleId) => {
         try {
-            const response = await fetch(`/api/vendas/${saleId}`);
+            const response = await retryFetch(`/api/vendas/${saleId}`);
             return await response.json();
         } catch (error) {
-            console.error('Erro ao carregar venda:', error);
+            console.error('Failed to load sale:', error);
+            showNotification('Failed to load sale details', 'danger');
+            return null;
         }
     };
 
     window.deleteSale = async (saleId) => {
-        if (confirm('Tem certeza que deseja excluir esta venda?')) {
-            try {
-                const response = await fetch(`/api/vendas/${saleId}`, { method: 'DELETE' });
-                if (response.ok) location.reload();
-            } catch (error) {
-                console.error('Erro ao excluir venda:', error);
-            }
+        if (!confirm('Are you sure you want to delete this sale?')) {
+            return;
+        }
+        
+        try {
+            showLoading();
+            const response = await retryFetch(`/api/vendas/${saleId}`, {
+                method: 'DELETE'
+            });
+            
+            showNotification('Sale deleted successfully', 'success', 3000);
+            setTimeout(() => location.reload(), 1000);
+            
+        } catch (error) {
+            console.error('Failed to delete sale:', error);
+            showNotification('Failed to delete sale', 'danger');
+        } finally {
+            hideLoading();
         }
     };
 
+    // ========== INITIALIZATION ==========
+    const initialize = async () => {
+        try {
+            showLoading();
+            
+            // Load data in parallel
+            const [productsResult, campaignsResult] = await Promise.allSettled([
+                loadProducts(),
+                loadCampaigns()
+            ]);
+            
+            // Log any failures
+            if (productsResult.status === 'rejected') {
+                console.error('Products loading failed:', productsResult.reason);
+            }
+            if (campaignsResult.status === 'rejected') {
+                console.error('Campaigns loading failed:', campaignsResult.reason);
+            }
+            
+            // Setup UI
+            populatePaymentMethods();
+            setupEventListeners();
+            setupPaymentMethodAutofill();
+            setupInterestRateListeners();
+            setupPaymentMethodFields(); // Add this line
+            calculateTotals();
+            
+            console.log('Sales system initialized successfully');
+            
+        } catch (error) {
+            console.error('Initialization failed:', error);
+            showNotification('System initialization failed. Please reload the page.', 'danger', 10000);
+        } finally {
+            hideLoading();
+        }
+    };
+
+    // ========== STYLES ==========
+    const injectStyles = () => {
+        const style = document.createElement('style');
+        style.textContent = `
+            .overlay-loading {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(255, 255, 255, 0.9);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 9999;
+                backdrop-filter: blur(2px);
+            }
+            
+            .notification {
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                border-radius: 6px;
+            }
+            
+            .product-item {
+                transition: all 0.3s ease;
+            }
+            
+            .product-item:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            }
+            
+            .is-invalid {
+                border-color: #dc3545 !important;
+                animation: shake 0.5s ease-in-out;
+            }
+            
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                25% { transform: translateX(-5px); }
+                75% { transform: translateX(5px); }
+            }
+            
+            .payment-method:focus,
+            .payment-amount:focus,
+            .product-select:focus,
+            .quantity:focus {
+                box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+            }
+            
+            .btn:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+            
+            .fade-in {
+                animation: fadeIn 0.3s ease-in;
+            }
+            
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(-10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+        `;
+        document.head.appendChild(style);
+    };
+
+    // ========== ERROR HANDLING ==========
+    window.addEventListener('error', (event) => {
+        console.error('Global error:', event.error);
+        showNotification('An unexpected error occurred. Please refresh the page if issues persist.', 'danger', 8000);
+    });
+
+    window.addEventListener('unhandledrejection', (event) => {
+        console.error('Unhandled promise rejection:', event.reason);
+        showNotification('A network error occurred. Please check your connection.', 'warning', 5000);
+    });
+
+    // ========== START INITIALIZATION ==========
+    injectStyles();
     initialize();
 });

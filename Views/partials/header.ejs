@@ -37,7 +37,7 @@
     </nav>
     <div class="profit">
         <p>Lucro Mensal :</p>
-        <p>R$ 325,29</p>
+        <p><%= (typeof monthlyProfit === 'number') ? monthlyProfit : 'Erro ao calcular' %></p>
     </div>
 </header>
 <body>

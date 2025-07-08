@@ -130,7 +130,12 @@
                     <tr>
                     <td><%= client.name %></td>
                     <td><%= client.phone %></td>
-                    <td><%= new Date(client.last_purchase).toLocaleDateString() %></td>
+                    <td><% if (client.product_name) {%>
+                        <%= client.product_name%>
+                    <% } else {%>
+                        Não Comprou
+                    <% } %>
+                    </td>
                     <td class="<%= client.debt > 0 ? 'text-danger' : 'text-success' %>">
                         R$ <%= Number(client.debt).toFixed(2) %>
                     </td>

@@ -116,7 +116,7 @@
                         </select>
                     </div>
 
-                    <div class="row g-3">
+                    <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             <label class="form-label">Preço</label>
                             <div class="input-group">
@@ -131,6 +131,13 @@
                                 <span class="input-group-text"><i class="bi bi-box"></i></span>
                                 <input type="number" name="stock" class="form-control" required>
                             </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Percentual de Lucro %</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-tag"></i></span>
+                            <input type="number" name="profit_percentual" class="form-control" required>
                         </div>
                     </div>
                 </div>
@@ -188,7 +195,7 @@
                             <option value="avon">Avon</option>
                         </select>
                     </div>
-                    <div class="row g-3">
+                    <div class="row g-3 mb-3">
                         <div class="col-md-6">
                             <label class="form-label">Preço</label>
                             <div class="input-group">
@@ -204,6 +211,14 @@
                             </div>
                         </div>
                         <input type="hidden" name="currentImage" id="existingImage">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Percentual de Lucro %</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-tag"></i></span>
+                            <input type="number" name="profit_percentual" class="form-control" required>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -248,14 +263,23 @@
                         </div>
                     </div>
 
-                    <div class="mt-3">
+                    <div class="mt-3 mb-3">
                         <label class="form-label">Preço Promocional</label>
                         <div class="input-group">
                             <span class="input-group-text">R$</span>
                             <input type="number" name="promo_price" class="form-control" step="0.01" required>
                         </div>
                     </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Percentual de Lucro %</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-tag"></i></span>
+                            <input type="number" name="profit_percentual" class="form-control" required>
+                        </div>
+                    </div>
                 </div>
+
                 <div class="modal-footer border-top-0">
                     <button type="submit" class="btn btn-warning w-100 py-2">
                         <i class="bi bi-lightning-charge me-2"></i>Criar Campanha

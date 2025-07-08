@@ -33,7 +33,11 @@ async function filterProducts() {
         }
 
         const products = await response.json();
-        renderProducts(products);
+        if (Array.isArray(products) && products.length === 0) {
+            renderProducts("Nenhum produto atende aos critérios de busca");
+          } else {
+            renderProducts(products);
+          }
 
     } catch (err) {
         console.error('Erro na busca:', err);
@@ -200,7 +204,11 @@ document.getElementById('newProductForm').addEventListener('submit', async (e) =
         });
 
         if (response.ok) {
-            $('#newProductModal').modal('hide');
+            // Use Bootstrap's Modal API with vanilla JS
+            const modalEl = document.getElementById('newProductModal');
+            // Get the existing modal instance or create a new one if it doesn't exist
+            const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+            modal.hide();
             location.reload();
         }
     } catch (error) {

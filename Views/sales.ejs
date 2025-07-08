@@ -69,11 +69,12 @@
                                             <div class="input-group">
                                                 <select class="form-select payment-method" data-index="1" required>
                                                     <option value="">Selecione...</option>
-                                                    <option value="dinheiro">Dinheiro</option>
-                                                    <option value="pix">PIX</option>
-                                                    <option value="debito">Cartão Débito</option>
-                                                    <option value="credito">Cartão Crédito</option>
-                                                    <option value="pix_credito">PIX Crédito</option>
+                                                    <option value=6>Dinheiro</option>
+                                                    <option value=1>PIX</option>
+                                                    <option value=3>Cartão Débito</option>
+                                                    <option value=2>Cartão Crédito</option>
+                                                    <option value=4>PIX Crédito</option>
+                                                    <option value=5>Boleto</option>
                                                 </select>
                                                 <input type="text" class="form-control payment-amount active-payment" name="payment_1" data-index="1" required readonly>
                                             </div>
@@ -92,7 +93,7 @@
                                                 </div>
                                             </div>
                                             <!-- Novo campo para parcelas -->
-                                            <div class="input-group mt-2">
+                                            <div class="input-group mt-2 installments" data-index="1" style="display: none;">
                                                 <span class="input-group-text">Parcelas</span>
                                                 <input type="number" class="form-control installments" data-index="1" min="1" value="1" required>
                                             </div>
@@ -104,13 +105,14 @@
                                         <!-- Método 2 (similar, com data-index="2") -->
                                         <div class="col-md-6 d-none" id="paymentMethod2">
                                             <div class="input-group">
-                                                <select class="form-select payment-method" data-index="2">
-                                                    <option value="">Segunda forma (opcional)</option>
-                                                    <option value="dinheiro">Dinheiro</option>
-                                                    <option value="pix">PIX</option>
-                                                    <option value="debito">Cartão Débito</option>
-                                                    <option value="credito">Cartão Crédito</option>
-                                                    <option value="pix_credito">PIX Crédito</option>
+                                                <select class="form-select payment-method" data-index="2" >
+                                                    <option value="">Selecione...</option>
+                                                    <option value=6>Dinheiro</option>
+                                                    <option value=1>PIX</option>
+                                                    <option value=3>Cartão Débito</option>
+                                                    <option value=2>Cartão Crédito</option>
+                                                    <option value=4>PIX Crédito</option>
+                                                    <option value=5>Boleto</option>
                                                 </select>
                                                 <input type="text" class="form-control payment-amount" name="payment_2" data-index="2" placeholder="Valor" inputmode="decimal">
                                             </div>
@@ -125,7 +127,7 @@
                                                 </div>
                                             </div>
                                             <!-- Novo campo para parcelas -->
-                                            <div class="input-group mt-2">
+                                            <div class="input-group mt-2 installments" data-index="2" style="display: none;">
                                                 <span class="input-group-text">Parcelas</span>
                                                 <input type="number" class="form-control installments" data-index="2" min="1" value="1" required>
                                             </div>
@@ -222,11 +224,31 @@
                                     </td>
                                     <td>
                                         <% sale.payment_methods.forEach(method => { %>
-                                        <div class="badge bg-info me-1 mb-1">
-                                            <%= method.method %>: R$ <%= Number(method.amount).toFixed(2) %>
-                                        </div>
-                                        <% }) %>
-                                    </td>
+                                            <div class="badge bg-info mb-2">
+                                              <strong><%= method.method %>:</strong> R$ <%= Number(method.amount).toFixed(2) %>
+                                          
+                                              <% 
+                                                // Fallback para array vazio e busca da próxima parcela não paga
+                                                const parcels = Array.isArray(method.parcels) ? method.parcels : [];
+                                                const nextInst = parcels.find(p => !p.paid);
+                                              %>
+                                          
+                                              <% if (method.paid) { %>
+                                                <i class="bi bi-check-circle-fill text-success ms-2" title="Pago"></i>
+                                              <% } else if (nextInst) { %>
+                                                <button
+                                                  class="btn btn-sm btn-outline-success mark-installment-paid ms-2"
+                                                  data-installment-id="<%= nextInst.id %>">
+                                                  Pagar parcela <%= nextInst.number %> — R$ <%= nextInst.value.toFixed(2) %>
+                                                </button>
+                                              <% } else { %>
+                                                <!-- Nenhuma parcela pendente -->
+                                                <small class="text-muted ms-2">Sem parcelas pendentes</small>
+                                              <% } %>
+                                            </div>
+                                          <% }) %>
+                                          
+                                    </td>                                      
                                     <td class="fw-bold">R$ <%= Number(sale.total).toFixed(2) %></td>
                                     <td>
                                         <button class="btn btn-sm btn-outline-primary me-1"
