@@ -1,249 +1,387 @@
-<%- include('partials/header.ejs') %>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clientes - Sistema de Gestão</title>
+    
+    <link rel="stylesheet" href="Styles/header.css">
+    <link rel="stylesheet" href="Styles/client.css">
 
-<!-- <main>
-    <div class="tables-wrapper">
-        <h2>Clientes Cadastrados</h2>
-        <table class="clients-table">
-            <tr>
-                <th>Clientes</th>
-                <th>Contato</th>
-                <th>Ações</th>
-                <th>Última Compra</th>
-            </tr>
-            <tr>
-                <td>João Bezerra</td>
-                <td>(85) 98888-8888</td>
-                <td><button>...</button></td>
-                <td>Quasar Fire</td>
-            </tr>
-            <tr>
-                <td>Saul Bezerra</td>
-                <td>(85) 98888-8888</td>
-                <td><button>...</button></td>
-                <td>Essencial Supreme</td>
-            </tr>
-            <tr>
-                <td>Samuel Coelho</td>
-                <td>(85) 98888-8888</td>
-                <td><button>...</button></td>
-                <td>Egeo Blue</td>
-            </tr>
-            <tr>
-                <td>Amanda Paolino</td>
-                <td>(85) 98888-8888</td>
-                <td><button>...</button></td>
-                <td>Lily</td>
-            </tr>
-            <tr>
-                <td>Késsia Oliveira</td>
-                <td>(85) 98888-8888</td>
-                <td><button>...</button></td>
-                <td>Club 6</td>
-            </tr>
-        </table>
-    </div>
-</main>
-
-</body>
-</html> -->
-
-<!-- Modal de Edição -->
-<div class="modal fade" id="editModal">
-    <div class="modal-dialog">
-        <div class="modal-content">
-        <div class="modal-header">
-            <h5 class="modal-title">Editar Cliente</h5>
-            <button class="btn-close" data-bs-dismiss="modal"></button>
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/font/bootstrap-icons.css">
+</head>
+<body>
+    <!-- Header -->
+    <%- include('partials/header.ejs') %>
+    
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="d-flex justify-content-center align-items-center" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999;">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Carregando...</span>
         </div>
-            <form id="editForm">
-                <div class="modal-body">
-                    <input type="hidden" id="editClientId">
-                    <div class="mb-3">
-                        <input type="text" class="form-control" id="editName" required>
+    </div>
+
+    <main>
+        <div class="container">
+            <!-- Page Header -->
+            <div class="page-header">
+                <div class="page-header-content">
+                    <div>
+                        <h1 class="page-title">Clientes</h1>
+                        <p class="page-subtitle">Gerencie seus clientes e acompanhe o relacionamento comercial</p>
                     </div>
-                    <div class="mb-3">
-                        <input type="tel" class="form-control" id="editPhone">
-                    </div>
-                    <div class="mb-3">
-                        <input type="number" class="form-control" id="editDebt" step="0.01">
-                    </div>
-                    </div>
-                    <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                    <button class="btn-primary-custom" data-bs-toggle="modal" data-bs-target="#addClientModal">
+                        <i class="bi bi-plus-circle"></i> Novo Cliente
+                    </button>
                 </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Modal de Histórico -->
-<div class="modal fade" id="historyModal">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Histórico do Cliente</h5>
-                <button class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
-                <table class="table">
-                    <thead>
-                        <tr>
-                        <th>Data</th>
-                        <th>Valor</th>
-                        <th>Produtos</th>
-                        </tr>
-                    </thead>
-                    <tbody id="historyContent">
-                    </tbody>
-                </table>
+
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-title">Total de Clientes</div>
+                        <div class="stat-icon">👥</div>
+                    </div>
+                    <div class="stat-value" id="totalClients">0</div>
+                    <div class="stat-change">+<%= clientsMonth %> este mês</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-title">Clientes Ativos</div>
+                        <div class="stat-icon">✅</div>
+                    </div>
+                    <div class="stat-value" id="activeClients">0</div>
+                    <div class="stat-change">Com compras</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-title">Clientes em Débito</div>
+                        <div class="stat-icon">⚠️</div>
+                    </div>
+                    <div class="stat-value" id="clientsWithDebt">0</div>
+                    <div class="stat-change">Pendentes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-title">Valor Total em Débito</div>
+                        <div class="stat-icon">💰</div>
+                    </div>
+                    <div class="stat-value" id="totalDebt">R$ 0,00</div>
+                    <div class="stat-change">A receber</div>
+                </div>
+            </div>
+
+            <!-- Search and Filter Container -->
+            <div class="search-container">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <div class="search-input">
+                            <i class="bi bi-search"></i>
+                            <input type="text" class="form-control" placeholder="Pesquisar clientes por nome, telefone ou produtos..." id="searchInput">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <select class="form-select" id="filterSelect">
+                            <option value="all">Todos os Clientes</option>
+                            <option value="with-debt">Com Débito</option>
+                            <option value="no-debt">Sem Débito</option>
+                            <option value="active">Clientes Ativos</option>
+                            <option value="inactive">Sem Compras</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Clients Table -->
+            <div class="table-container">
+                <div class="table-header">
+                    <h3 class="table-title">Lista de Clientes</h3>
+                    <div class="table-actions">
+                        <button class="btn btn-outline-primary btn-sm" onclick="refreshClients()">
+                            <i class="bi bi-arrow-clockwise"></i> Atualizar
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="exportClients()">
+                            <i class="bi bi-download"></i> Exportar
+                        </button>
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <table class="clients-table">
+                        <thead>
+                            <tr>
+                                <th>
+                                    <input type="checkbox" id="selectAll" class="form-check-input">
+                                </th>
+                                <th>Cliente</th>
+                                <th>Telefone</th>
+                                <th>Última Compra</th>
+                                <th>Débito</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clientsTableBody">
+                            <!-- Dynamic content will be loaded here -->
+                            <tr>
+                                <td colspan="6" class="text-center py-4">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Carregando clientes...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination-container" id="paginationContainer" style="display: none;">
+                <nav>
+                    <ul class="pagination justify-content-center">
+                        <!-- Pagination will be generated dynamically -->
+                    </ul>
+                </nav>
             </div>
         </div>
-    </div>
-</div>
+    </main>
 
-<main>
-    <div class="container mt-4">
-    <!-- Barra de Ferramentas -->
-        <div class="d-flex justify-content-between mb-4">
-            <h2>Clientes</h2>
-            <div>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addClientModal">
-                + Novo Cliente
-                </button>
-            </div>
-        </div>
-
-    <!-- Tabela Responsiva -->
-        <div class="table-responsive">
-            <table class="table-hover clients-table">
-                <thead>
-                <tr>
-                    <th>Nome</th>
-                    <th>Telefone</th>
-                    <th>Última Compra</th>
-                    <th>Débito</th>
-                    <th>Ações</th>
-                </tr>
-                </thead>
-                <tbody>
-                <% clients.forEach(client => { %>
-                    <tr>
-                    <td><%= client.name %></td>
-                    <td><%= client.phone %></td>
-                    <td><% if (client.product_name) {%>
-                        <%= client.product_name%>
-                    <% } else {%>
-                        Não Comprou
-                    <% } %>
-                    </td>
-                    <td class="<%= client.debt > 0 ? 'text-danger' : 'text-success' %>">
-                        R$ <%= Number(client.debt).toFixed(2) %>
-                    </td>
-                    <td>
-                        <button class="btn btn-edit btn-sm" 
-                                onclick='openEditModal(" <%=client.id%> ")'>Editar</button>
-                        
-                        <button class="btn btn-history btn-sm" 
-                                onclick='openHistoryModal("<%=client.id%>")''>Histórico</button>
-                                
-                        <button class="btn btn-delete btn-sm" 
-                                onclick="confirmDelete('<%=client.id%>')">Excluir</button>
-                    </td>
-                    </tr>
-                <% }) %>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-<!-- Modal Adicionar Cliente -->
-    <div class="modal fade" id="addClientModal">
+    <!-- Add Client Modal -->
+    <div class="modal fade" id="addClientModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                <h5 class="modal-title">Novo Cliente</h5>
-                <button class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title">
+                        <i class="bi bi-person-plus"></i> Novo Cliente
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form action="/clientes" method="POST">
-                <div class="modal-body">
-                    <div class="mb-3">
-                    <input type="text" class="form-control" name="name" placeholder="Nome Completo" required>
+                <form id="addClientForm">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Nome Completo <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="name" required>
+                            <div class="invalid-feedback">
+                                Por favor, informe o nome do cliente.
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Telefone</label>
+                            <input type="tel" class="form-control" name="phone" placeholder="(85) 9 9999-9999">
+                            <div class="form-text">Formato: (85) 9 9999-9999</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Débito Inicial (R$)</label>
+                            <input type="number" class="form-control" name="debt" step="0.01" min="0" value="0">
+                            <div class="form-text">Deixe 0 se não houver débito inicial</div>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                    <input type="tel" class="form-control" name="phone" placeholder="Telefone" required>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save"></i> Salvar Cliente
+                        </button>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">Salvar</button>
-                </div>
                 </form>
             </div>
         </div>
     </div>
-</main>
 
-    <script defer="defer">
-    // Editar Cliente
-        async function openEditModal(clientId) {
-        
-            try {
-                console.log("Abrindo edição para:", clientId);
-                const response = await fetch(`/clientes/${clientId}`);
-                const client = await response.json();
-                
-                document.getElementById('editClientId').value = client.id;
-                document.getElementById('editName').value = client.name;
-                document.getElementById('editPhone').value = client.phone;
-                document.getElementById('editDebt').value = client.debt;
-                
-                new bootstrap.Modal('#editModal').show();
-            } catch (err) {
-                console.error("Falha ao buscar cliente:", err);
-                alert("Não foi possível carregar os dados do cliente");
+    <!-- Edit Client Modal -->
+    <div class="modal fade" id="editModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-pencil"></i> Editar Cliente
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="editForm">
+                    <div class="modal-body">
+                        <input type="hidden" id="editClientId">
+                        <div class="mb-3">
+                            <label class="form-label">Nome Completo <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="editName" required>
+                            <div class="invalid-feedback">
+                                Por favor, informe o nome do cliente.
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Telefone</label>
+                            <input type="tel" class="form-control" id="editPhone" placeholder="(85) 9 9999-9999">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Débito (R$)</label>
+                            <input type="number" class="form-control" id="editDebt" step="0.01">
+                            <div class="form-text">Valor atual do débito do cliente</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Observações</label>
+                            <textarea class="form-control" id="editNotes" rows="3" placeholder="Observações sobre o cliente..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save"></i> Salvar Alterações
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Modal -->
+    <div class="modal fade" id="historyModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-clock-history"></i> Histórico do Cliente
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <h6 id="historyClientName">Nome do Cliente</h6>
+                        <p class="text-muted" id="historyClientInfo">Informações do cliente</p>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Total</th>
+                                    <th>Produtos</th>
+                                    <th>Parcelas</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyContent">
+                                <!-- Content will be populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="historyEmpty" class="text-center py-4" style="display: none;">
+                        <i class="bi bi-inbox display-4 text-muted"></i>
+                        <p class="text-muted mt-2">Nenhum histórico de compras encontrado</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-primary" onclick="printHistory()">
+                        <i class="bi bi-printer"></i> Imprimir Histórico
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Actions Modal -->
+    <div class="modal fade" id="bulkActionsModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-list-check"></i> Ações em Massa
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Selecione uma ação para aplicar aos <span id="selectedCount">0</span> clientes selecionados:</p>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" onclick="bulkExport()">
+                            <i class="bi bi-download"></i> Exportar Selecionados
+                        </button>
+                        <button class="btn btn-outline-warning" onclick="bulkUpdateDebt()">
+                            <i class="bi bi-cash"></i> Atualizar Débito
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="bulkDelete()">
+                            <i class="bi bi-trash"></i> Excluir Selecionados
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <%- include('partials/footer.ejs') %>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script src="JS/client.js"></script>
+    
+    <!-- Additional Scripts -->
+    <script>
+
+        // Phone number formatting
+        document.addEventListener('input', function(e) {
+            if (e.target.type === 'tel') {
+                let value = e.target.value.replace(/\D/g, '');
+                if (value.length <= 11) {
+                    value = value.replace(/(\d{2})(\d{1})(\d{4})(\d{4})/, '($1) $2 $3-$4');
+                    e.target.value = value;
+                }
             }
-        }
-
-        document.getElementById('editForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const updatedClient = {
-            name: document.getElementById('editName').value,
-            phone: document.getElementById('editPhone').value,
-            debt: document.getElementById('editDebt').value
-            };
-
-            await fetch(`/clientes/${document.getElementById('editClientId').value}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updatedClient)
-            });
-
-            location.reload();
         });
 
-        // Histórico de Compras
-        async function openHistoryModal(clientId) {
-            const response = await fetch(`/clientes/${clientId}/historico`);
-            const history = await response.json();
-            
-            const historyHTML = history.map(sale => `
-            <tr>
-                <td>${new Date(sale.sale_date).toLocaleDateString()}</td>
-                <td>R$ ${sale.total.toFixed(2)}</td>
-                <td>${sale.products.join(', ')}</td>
-            </tr>
-            `).join('');
-            
-            document.getElementById('historyContent').innerHTML = historyHTML;
-            new bootstrap.Modal('#historyModal').show();
+        // Export clients function
+        function exportClients() {
+            // This would implement CSV/Excel export functionality
+            showNotification('Funcionalidade de exportação em desenvolvimento', 'info');
         }
 
-        // Excluir Registros
-        async function confirmDelete(id) {
-            if (confirm('Tem certeza que deseja excluir este registro?')) {
-            await fetch(`/clientes/${id}`, { method: 'DELETE' });
-            location.reload();
-            }
+        // Print history function
+        function printHistory() {
+            const historyContent = document.getElementById('historyContent').innerHTML;
+            const clientName = document.getElementById('historyClientName').textContent;
+            
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html>
+                    <head>
+                        <title>Histórico - ${clientName}</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; margin: 20px; }
+                            table { width: 100%; border-collapse: collapse; }
+                            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                            th { background-color: #f2f2f2; }
+                        </style>
+                    </head>
+                    <body>
+                        <h2>Histórico de Compras - ${clientName}</h2>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Valor</th>
+                                    <th>Produtos</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${historyContent}
+                            </tbody>
+                        </table>
+                    </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.print();
         }
+
+        // Initialize tooltips
+        document.addEventListener('DOMContentLoaded', function() {
+            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function(tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        });
     </script>
-<%- include('partials/footer.ejs') %>
+</body>
+</html>

@@ -27,13 +27,59 @@ document.addEventListener('DOMContentLoaded', () => {
     const retryFetch = async (url, options = {}, maxRetries = CONFIG.MAX_RETRY_ATTEMPTS) => {
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
-                const response = await fetch(url, options);
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                console.log(`Attempting ${options.method || 'GET'} to: ${url}`);
+                
+                const response = await fetch(url, {
+                    ...options,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    }
+                });
+                
+                console.log(`Response status: ${response.status}, URL: ${response.url}`);
+                
+                // Check if we were redirected to login
+                if (response.url.includes('/login') && !url.includes('/login')) {
+                    console.warn('Redirected to login - session expired');
+                    showNotification('Session expired. Please login again.', 'warning');
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 1500);
+                    return;
                 }
+                
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        showNotification('Session expired. Please login again.', 'warning');
+                        setTimeout(() => {
+                            window.location.href = '/login';
+                        }, 1500);
+                        return;
+                    }
+                    
+                    // Try to get error details from response
+                    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.error || errorMessage;
+                    } catch (e) {
+                        // If response is not JSON, use status text
+                    }
+                    
+                    throw new Error(errorMessage);
+                }
+                
                 return response;
+                
             } catch (error) {
                 console.warn(`Attempt ${attempt} failed for ${url}:`, error.message);
+                
+                // Don't retry on authentication errors
+                if (error.message.includes('401') || error.message.includes('Authentication')) {
+                    throw error;
+                }
+                
                 if (attempt === maxRetries) throw error;
                 await new Promise(resolve => setTimeout(resolve, CONFIG.RETRY_DELAY * attempt));
             }
@@ -539,7 +585,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     .map(method => {
                         const dataIndex = method.getAttribute('data-index');
                         const amountInput = document.querySelector(`.payment-amount[data-index="${dataIndex}"]`);
-                        const installmentsInput = document.querySelector(`.installments[data-index="${dataIndex}"]`);
+                        const installmentsInput = document.querySelector(`.installments-input[data-index="${dataIndex}"]`);
                         const interestInput = document.querySelector(`.interest-field[data-index="${dataIndex}"] .interest-rate`);
                         const statusInput = document.querySelector(`.payment-status[data-index="${dataIndex}"]`);
                         
@@ -769,22 +815,44 @@ document.addEventListener('DOMContentLoaded', () => {
     function handlePaymentMethodChange(event) {
         const dataIndex = event.target.getAttribute('data-index');
         const method = event.target.value;
-        const isCredit = ['credito', 'pix_credito'].includes(method);
-      
-        // Busca direta pelos elementos corretos
-        const interestField     = document.querySelector(`.interest-field[data-index="${dataIndex}"]`);
-        const installmentsField = document.querySelector(`.installments[data-index="${dataIndex}"]`);
-      
+        
+        // Use numeric values that match your HTML options
+        const isCredit = ['2', '4'].includes(method); // 2 = Cartão Crédito, 4 = PIX Crédito
+        
+        // More specific selectors to avoid conflicts
+        const interestField = document.querySelector(`.interest-field[data-index="${dataIndex}"]`);
+        const installmentsField = document.querySelector(`.input-group.installments[data-index="${dataIndex}"]`);
+        
+        console.log('Payment method changed:', { method, isCredit, dataIndex }); // Debug log
+        
         if (interestField) {
-          interestField.style.display = isCredit ? 'block' : 'none';
+            interestField.style.display = isCredit ? 'block' : 'none';
+            console.log('Interest field visibility:', isCredit ? 'shown' : 'hidden');
+        } else {
+            console.error('Interest field not found for index:', dataIndex);
         }
+        
         if (installmentsField) {
-          installmentsField.style.display = isCredit ? 'flex' : 'none';
+            installmentsField.style.display = isCredit ? 'flex' : 'none';
+            console.log('Installments field visibility:', isCredit ? 'shown' : 'hidden');
+        } else {
+            console.error('Installments field not found for index:', dataIndex);
+        }
+        
+        // Make interest rate and installments required when credit is selected
+        const interestRateInput = document.querySelector(`.interest-field[data-index="${dataIndex}"] .interest-rate`);
+        const installmentsInput = document.querySelector(`.input-group.installments-input[data-index="${dataIndex}"] .installments`);
+        
+        if (interestRateInput) {
+            interestRateInput.required = isCredit;
+        }
+        if (installmentsInput) {
+            installmentsInput.required = isCredit;
         }
         
         // Recalculate totals
         calculateTotals();
-    };
+    }
 
     function setupPaymentMethodFields() {
         document.querySelectorAll('.payment-method').forEach(select => {
@@ -991,6 +1059,35 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('Unhandled promise rejection:', event.reason);
         showNotification('A network error occurred. Please check your connection.', 'warning', 5000);
     });
+
+    window.markInstallmentPaid = async (installmentId) => {
+        try {
+            showLoading();
+            
+            const response = await retryFetch(`/api/installments/${installmentId}/pay`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            // If response is undefined, it means we were redirected to login
+            if (!response) {
+                return;
+            }
+            
+            const result = await response.json();
+            
+            showNotification('Installment marked as paid successfully', 'success', 3000);
+            setTimeout(() => location.reload(), 1000);
+            
+        } catch (error) {
+            console.error('Failed to mark installment as paid:', error);
+            showNotification(`Failed to mark installment as paid: ${error.message}`, 'danger');
+        } finally {
+            hideLoading();
+        }
+    };
 
     // ========== START INITIALIZATION ==========
     injectStyles();

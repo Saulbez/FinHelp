@@ -1,97 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
 
-    <%- include('partials/header.ejs') %>
-    <main>
-        <h2>Controle Financeiro</h2>
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <link rel="stylesheet" type="text/css" href="/styles/header.css">
+    <link rel="stylesheet" type="text/css" href="/styles/index.css">
+    <link rel="stylesheet" type="text/css" href="/styles/footer.css">
+
+    <script src="JS/index.js" type="text/javascript" defer="defer"></script>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <%- include('partials/header.ejs') %>    
+    <main class="main-content">
         <div class="container">
-            <div class="tables-wrapper home">
-                <h3>Vendas Recentes</h3>
-                <table class="recent-sales">
-                    <tr>
-                        <th>Clientes</th>
-                        <th>Produtos</th>
-                        <th>Valor R$</th>
-                        <th>Data</th>
-                    </tr>
-                    <tr>
-                        <td>João Bezerra</td>
-                        <td>Quasar Fire</td>
-                        <td>149,90</td>
-                        <td>28/02/25</td>
-                    </tr>
-                    <tr>
-                        <td>Saul Bezerra</td>
-                        <td>Essencial Supreme</td>
-                        <td>249,90</td>
-                        <td>22/02/25</td>
-                    </tr>
-                    <tr>
-                        <td>Samuel Coelho</td>
-                        <td>Egeo Blue</td>
-                        <td>129,90</td>
-                        <td>17/02/25</td>
-                    </tr>
-                    <tr>
-                        <td>Amanda Paolino</td>
-                        <td>Lily</td>
-                        <td>159,90</td>
-                        <td>13/02/25</td>
-                    </tr>
-                    <tr>
-                        <td>Késsia Oliveira</td>
-                        <td>Club 6</td>
-                        <td>139,90</td>
-                        <td>02/02/25</td>
-                    </tr>
-                </table>
-            </div>
-            <div class="tables-wrapper home">
-                <h3>Produtos mais vendidos</h3>
-                <table class="most-sold-products">
-                    <tr>
-                        <th>Produto</th>
-                        <th>Vendas</th>
-                    </tr>
-                    <tr>
-                        <td>Quasar Fire</td>
-                        <td>10</td>
-                    </tr>
-                    <tr>
-                        <td>Egeo Blue</td>
-                        <td>8</td>
-                    </tr>
-                    <tr>
-                        <td>Lily blanche</td>
-                        <td>5</td>
-                    </tr>
-                    <tr>
-                        <td>Club 6 voyage</td>
-                        <td>2</td>
-                    </tr>
-                </table>
-            </div>
-        </div>
-
-        <h2>Revistas Atuais</h2>
-
-        <div class="current-magazines">
-            <div class="boticario">
-                <h3>Grupo Boticário</h3>
-                <div class="catalogs">
-                    <a href="https://minhaloja.boticario.com.br/loja-leticiaemillebarrosolima-16352127?page=8" rel="next" target="_blank"><img src="images/catalog/boticario/catalogo1.webp" alt=""></a>
-                    <a href="https://minhaloja.eudora.com.br/loja-leticiaemillebarrosolima-16352127?page=2" rel="next" target="_blank"><img src="images/catalog/boticario/catalogo2.webp" alt=""></a>
-                    <a href="https://minhaloja.ouiparis.com/loja-leticiaemillebarrosolima-16352127" rel="next" target="_blank"><img src="images/catalog/boticario/catalogo3.webp" alt=""></a>
-                    <a href="https://minhaloja.quemdisseberenice.com.br/loja-leticiaemillebarrosolima-16352127?page=2" rel="next" target="_blank"><img src="images/catalog/boticario/catalogo4.webp" alt=""></a>
+            <h1 class="page-title">Controle Financeiro</h1>
+            
+            <!-- Dashboard Statistics -->
+            <section class="stats-section">
+                <div class="section-header">
+                    <h2 class="section-title">Resumo Geral</h2>
+                    <p class="section-subtitle">Acompanhe os indicadores chave de desempenho em tempo real. Passe o mouse sobre um card para destacá-lo.</p>
                 </div>
-            </div>
-            <div class="avon">
-                <h3>Grupo Avon</h3>
-                <div class="catalogs">
-                    <a href=""><img src="images/catalog/avon/natura.svg" alt=""></a>
-                    <a href=""><img src="images/catalog/avon/avon.svg" alt=""></a>
-                    <a href=""><img src="images/catalog/avon/casaEEstilo.svg" alt=""></a>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span class="stat-title">Total de Clientes</span>
+                            <span class="stat-icon">👥</span>
+                        </div>
+                        <div class="stat-value" id="totalClients">-</div>
+                        <div class="stat-subtitle success">Clientes ativos</div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span class="stat-title">Vendas Realizadas</span>
+                            <span class="stat-icon">💰</span>
+                        </div>
+                        <div class="stat-value" id="totalSales">-</div>
+                        <div class="stat-subtitle success">Vendas totais do período</div>
+                    </div>
+                    
+                    <div class="stat-card warning">
+                        <div class="stat-header">
+                            <span class="stat-title">Parcelas Pendentes</span>
+                            <span class="stat-icon">⏳</span>
+                        </div>
+                        <div class="stat-value" id="pendingInstallments">-</div>
+                        <div class="stat-subtitle warning" id="pendingAmount">R$ 0,00</div>
+                    </div>
+                    
+                    <div class="stat-card danger">
+                        <div class="stat-header">
+                            <span class="stat-title">Parcelas Atrasadas</span>
+                            <span class="stat-icon">⚠️</span>
+                        </div>
+                        <div class="stat-value" id="overdueInstallments">-</div>
+                        <div class="stat-subtitle danger" id="overdueAmount">R$ 0,00</div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span class="stat-title">Total de Produtos</span>
+                            <span class="stat-icon">📦</span>
+                        </div>
+                        <div class="stat-value" id="totalProducts">-</div>
+                        <div class="stat-subtitle">Itens cadastrados</div>
+                    </div>
+                    
+                    <div class="stat-card warning">
+                        <div class="stat-header">
+                            <span class="stat-title">Estoque Baixo</span>
+                            <span class="stat-icon">📉</span>
+                        </div>
+                        <div class="stat-value" id="lowStockProducts">-</div>
+                        <div class="stat-subtitle warning">Produtos com estoque ≤ 10</div>
+                    </div>
                 </div>
-            </div>
+            </section>
+            
+            <!-- Charts Section -->
+            <section class="charts-section">
+                <div class="section-header">
+                    <h2 class="section-title">Análise Visual</h2>
+                    <p class="section-subtitle">Explore os dados de vendas e pagamentos de forma visual e interativa.</p>
+                </div>
+                
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <h3 class="chart-title">Top 5 Produtos por Receita</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="topProductsChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <h3 class="chart-title">Status dos Pagamentos</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="installmentsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Table Section -->
+            <section class="table-section">
+                <div class="section-header">
+                    <h2 class="section-title">Dados Detalhados</h2>
+                    <p class="section-subtitle">Consulte as informações granulares de vendas e estoque.</p>
+                </div>
+                
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3 class="table-title">Vendas Recentes</h3>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="responsive-table">
+                            <thead>
+                                <tr>
+                                    <th>Cliente</th>
+                                    <th>Produto</th>
+                                    <th>Valor</th>
+                                    <th>Data</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentSalesBody">
+                                <tr>
+                                    <td colspan="4" class="loading">Carregando dados...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Catalogs Section -->
+            <section class="catalogs-section">
+                <div class="section-header">
+                    <h2 class="section-title">Revistas Atuais</h2>
+                    <p class="section-subtitle">Acesse os catálogos mais recentes das marcas parceiras.</p>
+                </div>
+                
+                <div class="catalogs-grid">
+                    <div class="catalog-group">
+                        <h3 class="catalog-group-title">Grupo Boticário</h3>
+                        <div class="catalog-items">
+                            <a href="#" target="_blank" class="catalog-item">
+                                <div class="catalog-brand boticario">Boticário</div>
+                                <div class="catalog-action">Ver catálogo</div>
+                            </a>
+                            <a href="#" target="_blank" class="catalog-item">
+                                <div class="catalog-brand eudora">Eudora</div>
+                                <div class="catalog-action">Ver catálogo</div>
+                            </a>
+                            <a href="#" target="_blank" class="catalog-item">
+                                <div class="catalog-brand oui">Oui Paris</div>
+                                <div class="catalog-action">Ver catálogo</div>
+                            </a>
+                            <a href="#" target="_blank" class="catalog-item">
+                                <div class="catalog-brand qdb">QDB</div>
+                                <div class="catalog-action">Ver catálogo</div>
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="catalog-group">
+                        <h3 class="catalog-group-title">Grupo Natura</h3>
+                        <div class="catalog-items">
+                            <a href="#" target="_blank" class="catalog-item">
+                                <div class="catalog-brand natura">Natura</div>
+                                <div class="catalog-action">Ver catálogo</div>
+                            </a>
+                            <a href="#" target="_blank" class="catalog-item">
+                                <div class="catalog-brand avon">Avon</div>
+                                <div class="catalog-action">Ver catálogo</div>
+                            </a>
+                            <a href="#" target="_blank" class="catalog-item">
+                                <div class="catalog-brand casa">Casa & Estilo</div>
+                                <div class="catalog-action">Ver catálogo</div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </div>
-        
     </main>
-<%- include('partials/footer.ejs') %>
+    
+    <%- include('partials/footer.ejs') %>
+    
+    <script src="/public/JS/dashboard.js"></script>
+</body>
+</html>

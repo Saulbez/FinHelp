@@ -1,20 +1,31 @@
-const hamburguerMenu = document.querySelector("div.hamburguer");
-const navBar = document.querySelector("nav");
-
-hamburguerMenu.addEventListener("click", function(){
-    navBar.classList.toggle("active");
-})
-
 // Enhanced Dashboard JavaScript with improved responsive functionality
-// Enhanced Dashboard JavaScript with Node.js and Flask compatibility
 document.addEventListener('DOMContentLoaded', function() {
-    // Configuration for server endpoints
-    const SERVER_CONFIG = {
-        dashboardData: '/api/dashboard-data',
-        clients: '/api/clientes',
-        products: '/api/produtos',
-        sales: '/api/vendas'
-    };
+    // Mobile navigation toggle
+    const hamburger = document.querySelector('.hamburger');
+    const nav = document.querySelector('.nav');
+    
+    if (hamburger && nav) {
+        hamburger.addEventListener('click', function() {
+            hamburger.classList.toggle('active');
+            nav.classList.toggle('active');
+        });
+        
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!hamburger.contains(e.target) && !nav.contains(e.target)) {
+                hamburger.classList.remove('active');
+                nav.classList.remove('active');
+            }
+        });
+        
+        // Close mobile menu when window is resized to desktop
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 768) {
+                hamburger.classList.remove('active');
+                nav.classList.remove('active');
+            }
+        });
+    }
     
     // Global variable to store dashboard data
     let dashboardData = null;
@@ -29,27 +40,14 @@ document.addEventListener('DOMContentLoaded', function() {
         return new Date(dateString).toLocaleDateString('pt-BR');
     }
     
-    // Enhanced API fetch function with retry mechanism
-    async function fetchWithRetry(url, options = {}, maxRetries = 3) {
-        for (let i = 0; i < maxRetries; i++) {
-            try {
-                const response = await fetch(url, options);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return await response.json();
-            } catch (error) {
-                console.warn(`Fetch attempt ${i + 1} failed:`, error);
-                if (i === maxRetries - 1) throw error;
-                await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
-            }
-        }
-    }
-    
     // Fetch dashboard data from API
     async function fetchDashboardData() {
         try {
-            dashboardData = await fetchWithRetry(SERVER_CONFIG.dashboardData);
+            const response = await fetch('/api/dashboard-data');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            dashboardData = await response.json();
             return dashboardData;
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
@@ -69,7 +67,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Populate dashboard statistics with enhanced animations
+    // Populate dashboard statistics
     function populateStats() {
         if (!dashboardData) return;
         
@@ -101,7 +99,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Enhanced animate counter values with custom easing
+    // Animate counter values
     function animateValue(element, start, end, duration, formatter = null) {
         const startTime = Date.now();
         const update = () => {
@@ -125,7 +123,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return 1 - (--t) * t * t * t;
     }
     
-    // Populate recent sales table with enhanced animations
+    // Populate recent sales table
     function populateRecentSales() {
         if (!dashboardData) return;
         
@@ -159,7 +157,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Enhanced render top products chart with better responsive design
+    // Render top products chart with responsive design
     function renderTopProductsChart() {
         const canvas = document.getElementById('topProductsChart');
         if (!canvas) return;
@@ -182,6 +180,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Responsive configuration based on screen size
         const isMobile = window.innerWidth < 768;
         const isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
+        const isDesktop = window.innerWidth >= 1024;
         
         window.topProductsChartInstance = new Chart(ctx, {
             type: 'bar',
@@ -280,7 +279,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Enhanced render installments chart with better responsive design
+    // Render installments chart with responsive design
     function renderInstallmentsChart() {
         const canvas = document.getElementById('installmentsChart');
         if (!canvas) return;
@@ -303,6 +302,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Responsive configuration based on screen size
         const isMobile = window.innerWidth < 768;
         const isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
+        const isDesktop = window.innerWidth >= 1024;
         
         window.installmentsChartInstance = new Chart(ctx, {
             type: 'doughnut',
@@ -383,17 +383,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 100);
     }
     
-    // Initialize dashboard with enhanced loading states
+    // Initialize dashboard
     async function initDashboard() {
         // Show loading state
-        const loadingElements = document.querySelectorAll('.loading, .stat-value, .stat-amount');
-        loadingElements.forEach(el => {
-            if (el.classList.contains('stat-value') || el.classList.contains('stat-amount')) {
-                el.textContent = '...';
-            } else {
-                el.style.display = 'block';
-            }
-        });
+        const loadingElements = document.querySelectorAll('.loading');
+        loadingElements.forEach(el => el.style.display = 'block');
         
         try {
             // Fetch dashboard data from API
@@ -412,15 +406,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (error) {
             console.error('Failed to initialize dashboard:', error);
-            // Show error state
-            const errorElements = document.querySelectorAll('.stat-value, .stat-amount');
-            errorElements.forEach(el => {
-                el.textContent = 'Erro';
-                el.style.color = '#ef4444';
-            });
         } finally {
             // Hide loading state
-            const loadingElements = document.querySelectorAll('.loading');
             loadingElements.forEach(el => el.style.display = 'none');
         }
     }
@@ -431,22 +418,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize dashboard
     initDashboard();
     
-    // Enhanced refresh functionality with loading state
+    // Refresh functionality
     window.refreshDashboard = async function() {
         await initDashboard();
     };
-    
-    // Periodic refresh every 5 minutes
-    setInterval(() => {
-        if (document.visibilityState === 'visible') {
-            window.refreshDashboard();
-        }
-    }, 5 * 60 * 1000);
-    
-    // Refresh on page visibility change
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-            window.refreshDashboard();
-        }
-    });
 });
