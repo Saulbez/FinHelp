@@ -11,323 +11,606 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <link rel="stylesheet" type="text/css" href="/styles/header.css">
-    <link rel="stylesheet" type="text/css" href="/styles/index.css">
+    <link rel="stylesheet" type="text/css" href="/styles/sales.css">
+    <link rel="stylesheet" type="text/css" href="/styles/cart.css">
     <link rel="stylesheet" type="text/css" href="/styles/footer.css">
     
     <script src="JS/index.js" type="text/javascript" defer="defer"></script>
-    <script src="JS/sales.js" type="text/javascript" defer="defer"></script>
+    <script src="JS/sales.js" type="text/javascript"></script>
+    <script src="JS/cart.js" type="text/javascript"></script>
+    <script src="JS/notifications.js" type="text/javascript" ></script>
 </head>
 <body>
     <%- include('partials/header.ejs') %>
 
-<main class="container my-4 px-md-5">
-    <!-- Botão Nova Venda -->
-    <div class="text-end my-4">
-        <button class="btn btn-success btn-lg rounded-pill" id="showNewSaleForm">
-            <i class="bi bi-plus-circle me-2"></i>Nova Venda
-        </button>
-    </div>
-    <div id="errorContainer"></div>
-
-    <% if(products.length > 0) { %>
-      <!-- Formulário de Nova Venda (Oculto inicialmente) -->
-      <div class="card shadow-sm mb-5 d-none" id="newSaleForm">
-        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-            <h5 class="mb-0"><i class="bi bi-cart-plus me-2"></i>Nova Venda</h5>
-        </div>
-                  <div class="card-body">
-                      <form id="saleForm">
-                          <!-- Cliente e Data -->
-                          <div class="row g-3 mb-4">
-                              <div class="col-md-6">
-                                  <label class="form-label">Cliente</label>
-                                  <select class="form-select" id="clientSelect" required>
-                                      <option value="">Selecione um cliente...</option>
-                                      <% clients.forEach(client => { %>
-                                      <option value="<%= client.id %>"><%= client.name %></option>
-                                      <% }) %>
-                                  </select>
-                              </div>
-                              <div class="col-md-6">
-                                  <label class="form-label">Data da Venda</label>
-                                  <input type="datetime-local" class="form-control" id="saleDate" 
-                                        value="<%= new Date().toISOString().slice(0,16) %>" required>
-                              </div>
-                          </div>
-
-                          <!-- Itens da Venda -->
-                          <div class="mb-4">
-                              <div class="d-flex justify-content-between align-items-center mb-3">
-                                  <h6>Itens da Venda</h6>
-                                  <div>
-                                      <button type="button" class="btn btn-sm btn-outline-success me-2" id="addProductBtn">
-                                          <i class="bi bi-plus-circle"></i> Adicionar
-                                      </button>
-                                      <button type="button" class="btn btn-sm btn-outline-primary" id="applyCampaignBtn">
-                                          <i class="bi bi-percent"></i> Aplicar Campanha
-                                      </button>
-                                  </div>
-                              </div>
-                              <div id="productsContainer" class="mb-4">
-                                  <!-- Itens serão adicionados dinamicamente -->
-                              </div>
-                          </div>
-
-                          <!-- Pagamento -->
-                          <div class="mb-4">
-                              <h6 class="mb-3">Forma de Pagamento</h6>
-
-                              <div class="form-check form-switch mb-3">
-                                <input class="form-check-input" type="checkbox" role="switch" id="togglePaymentMethod">
-                                <label class="form-check-label" for="togglePaymentMethod">Usar duas formas de pagamento</label>
-                            </div>
-
-                              <div class="d-flex justify-content-start payment-methods-container">
-                                  <div class="row g-3 payment-methods">
-                                      <!-- Método 1 -->
-                                        <div class="col-md-6">
-                                            <div class="input-group">
-                                                <select class="form-select payment-method" data-index="1" required>
-                                                    <option value="">Selecione...</option>
-                                                    <option value=6>Dinheiro</option>
-                                                    <option value=1>PIX</option>
-                                                    <option value=3>Cartão Débito</option>
-                                                    <option value=2>Cartão Crédito</option>
-                                                    <option value=4>PIX Crédito</option>
-                                                    <option value=5>Boleto</option>
-                                                </select>
-                                                <input type="text" class="form-control payment-amount active-payment" name="payment_1" data-index="1" required readonly>
-                                            </div>
-                                            <div class="mt-2">
-                                                <div class="method-total text-end small" data-index="1"></div>
-                                                <div class="interest-detail text-danger small" data-index="1"></div>
-                                            </div>
-                                            <div class="interest-field mt-2" data-index="1" style="display: none;">
-                                                <div class="input-group">
-                                                    <span class="input-group-text">Juros (%)</span>
-                                                    <input type="number" class="form-control interest-rate" step="0.01" min="0" max="50" value="2.99" name="interest_rate_1" required>
-                                                    <span class="input-group-text">
-                                                        <i class="bi bi-info-circle" data-bs-toggle="tooltip"
-                                                        title="Juros cobrado apenas sobre este valor"></i>
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <!-- Novo campo para parcelas -->
-                                            <div class="input-group mt-2 installments" data-index="1" style="display: none;">
-                                                <span class="input-group-text">Parcelas</span>
-                                                <input type="number" class="form-control installments-input" data-index="1" min="1" value="1" required>
-                                            </div>
-                                            <div class="form-check mt-2">
-                                                <input class="form-check-input payment-status" type="checkbox" data-index="1" id="paymentStatus1">
-                                                <label class="form-check-label" for="paymentStatus1">Pago</label>
-                                            </div>
-
-                                        <!-- Método 2 (similar, com data-index="2") -->
-                                        <div class="col-md-6 d-none" id="paymentMethod2">
-                                            <div class="input-group">
-                                                <select class="form-select payment-method" data-index="2" >
-                                                    <option value="">Selecione...</option>
-                                                    <option value=6>Dinheiro</option>
-                                                    <option value=1>PIX</option>
-                                                    <option value=3>Cartão Débito</option>
-                                                    <option value=2>Cartão Crédito</option>
-                                                    <option value=4>PIX Crédito</option>
-                                                    <option value=5>Boleto</option>
-                                                </select>
-                                                <input type="text" class="form-control payment-amount" name="payment_2" data-index="2" placeholder="Valor" inputmode="decimal">
-                                            </div>
-                                            <div class="mt-2">
-                                                <div class="method-total text-end small" data-index="2"></div>
-                                                <div class="interest-detail text-danger small" data-index="2"></div>
-                                            </div>
-                                            <div class="interest-field mt-2" data-index="2" style="display: none;">
-                                                <div class="input-group">
-                                                    <span class="input-group-text">Juros (%)</span>
-                                                    <input type="number" class="form-control interest-rate" step="0.01" min="0" max="50" value="2.99" name="interest_rate_2" required>
-                                                </div>
-                                            </div>
-                                            <!-- Novo campo para parcelas -->
-                                            <div class="input-group mt-2 installments" data-index="2" style="display: none;">
-                                                <span class="input-group-text">Parcelas</span>
-                                                <input type="number" class="form-control installments-input" data-index="2" min="1" value="1" required>
-                                            </div>
-                                            <div class="form-check mt-2">
-                                                <input class="form-check-input payment-status" type="checkbox" data-index="2" id="paymentStatus2">
-                                                <label class="form-check-label" for="paymentStatus1">Pago</label>
-                                            </div>
-                                        </div>
-                                    </div>
-                                  </div>
-                              </div>
-                          </div>
-
-                          <!-- Resumo -->
-                          <div class="card border-success mb-4">
-                              <div class="card-body">
-                                  <div class="row">
-                                      <div class="col-md-6">
-                                          <div class="h5 mb-3">Subtotal: <span id="subtotal">R$ 0,00</span></div>
-                                          <div class="text-muted small" id="discountInfo"></div>
-                                      </div>
-                                      <div class="col-md-6 text-end">
-                                          <div id="totalRaw" style="display: none;"><%= 0.00.toFixed(2) %></div>
-                                          <div class="h4 text-success">Total: <span id="totalAmount">R$ 0,00</span></div>
-                                          <div class="text-muted small" id="interestSummary"></div>
-                                      </div>
-                                  </div>
-                              </div>
-                          </div>
-
-                          <button type="submit" class="btn btn-success w-100 py-3">
-                              <i class="bi bi-check-circle me-2"></i>Finalizar Venda
-                          </button>
-                      </form>
-                  </div>
-              </div>
-            <% } else { %>
-              <div class="alert alert-warning mt-4">
-                  <i class="bi bi-exclamation-triangle me-2"></i>
-                  Nenhum produto disponível para venda. Cadastre produtos primeiro.
-              </div>
-            <% } %>
-            <div class="row g-3 mb-4">
-                <div class="col-md-3">
-                    <select class="form-select" id="filterProduct">
-                        <option value="">Todos Produtos</option>
-                        <% products.forEach(p => { %>
-                            <option value="<%= p.id %>"><%= p.name %></option>
-                        <% }) %>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <input type="number" class="form-control" id="filterMinPrice" placeholder="Preço Mínimo">
-                </div>
-                <div class="col-md-3">
-                    <select class="form-select" id="filterPayment">
-                        <option value="">Todos Pagamentos</option>
-                        <option value="dinheiro">Dinheiro</option>
-                        <option value="pix">PIX</option>
-                        <option value="debito">Cartão Débito</option>
-                        <option value="credito">Cartão Crédito</option>
-                        <option value="pix_credito">PIX Crédito</option>
-                    </select>
+    <main class="container my-4 px-md-5">
+        <!-- Botão Nova Venda -->
+        <div class="container my-4 px-md-5">
+            <!-- Notification Bar -->
+            <div class="notification-bar alert-info">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-bell me-2"></i>
+                        <span id="notificationText">Carregando notificações...</span>
+                    </div>
+                    <button class="btn btn-sm btn-light" onclick="dismissNotification()" title="Dispensar notificação">
+                        <i class="bi bi-x"></i>
+                    </button>
                 </div>
             </div>
-              <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Últimas Vendas</h5>
+
+            <!-- Quick Actions Panel -->
+            <div class="quick-actions">
+                <h4 class="mb-3">
+                    <i class="bi bi-lightning-charge me-2"></i>
+                    Ações Rápidas
+                </h4>
+                <div class="row g-3">
+                    <div class="col-md-2">
+                        <button class="btn quick-action-btn w-100" onclick="showQuickSale()">
+                            <i class="bi bi-cart-plus d-block mb-1"></i>
+                            Venda Rápida
+                        </button>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn quick-action-btn w-100" onclick="showBulkActions()">
+                            <i class="bi bi-check2-square d-block mb-1"></i>
+                            Ações em Lote
+                        </button>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn quick-action-btn w-100" onclick="showCommissionCalc()">
+                            <i class="bi bi-calculator d-block mb-1"></i>
+                            Comissões
+                        </button>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn quick-action-btn w-100" onclick="showCustomerInsights()">
+                            <i class="bi bi-person-lines-fill d-block mb-1"></i>
+                            Insights
+                        </button>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn quick-action-btn w-100" onclick="showReports()">
+                            <i class="bi bi-graph-up d-block mb-1"></i>
+                            Relatórios
+                        </button>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn quick-action-btn w-100" onclick="showExportOptions()">
+                            <i class="bi bi-download d-block mb-1"></i>
+                            Exportar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sales Analytics -->
+            <div class="sales-analytics">
+                <h4 class="mb-3">
+                    <i class="bi bi-graph-up me-2"></i>
+                    Analytics de Vendas
+                </h4>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <div class="metric-card">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-0">Vendas Hoje</h6>
+                                    <div class="animated-counter" id="salesToday">8</div>
+                                </div>
+                                <i class="bi bi-arrow-up-right text-success" style="font-size: 1.5rem;"></i>
+                            </div>
+                            <small class="text-light">+15% vs ontem</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="metric-card">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-0">Receita Hoje</h6>
+                                    <div class="animated-counter">R$ 1.250</div>
+                                </div>
+                                <i class="bi bi-currency-dollar text-success" style="font-size: 1.5rem;"></i>
+                            </div>
+                            <small class="text-light">+22% vs ontem</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="metric-card">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-0">Ticket Médio</h6>
+                                    <div class="animated-counter">R$ 156</div>
+                                </div>
+                                <i class="bi bi-receipt text-info" style="font-size: 1.5rem;"></i>
+                            </div>
+                            <small class="text-light">+5% vs média</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="metric-card">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-0">Conversão</h6>
+                                    <div class="animated-counter">68%</div>
+                                </div>
+                                <i class="bi bi-target text-warning" style="font-size: 1.5rem;"></i>
+                            </div>
+                            <small class="text-light">+12% vs meta</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Product Suggestions -->
+            <div class="product-suggestion">
+                <h5 class="mb-3">
+                    <i class="bi bi-lightbulb me-2"></i>
+                    Sugestões Inteligentes
+                </h5>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-fire me-2"></i>
+                            <div>
+                                <strong>Produto em Alta:</strong><br>
+                                <small>Perfume Floratta - 15 vendas esta semana</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            <div>
+                                <strong>Estoque Baixo:</strong><br>
+                                <small>Shampoo Natura - Apenas 5 unidades</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-star me-2"></i>
+                            <div>
+                                <strong>Recomendação:</strong><br>
+                                <small>Combinar com Hidratante Corporal</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Enhanced Filters -->
+            <div class="table-actions">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <div class="search-enhance">
+                            <i class="bi bi-search search-icon"></i>
+                            <input type="text" class="form-control" id="searchSales" placeholder="Buscar vendas, clientes, produtos...">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-select" id="dateRange">
+                            <option value="today">Hoje</option>
+                            <option value="week">Esta Semana</option>
+                            <option value="month">Este Mês</option>
+                            <option value="custom">Personalizado</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-select" id="statusFilter">
+                            <option value="">Todos Status</option>
+                            <option value="paid">Pagos</option>
+                            <option value="pending">Pendentes</option>
+                            <option value="overdue">Atrasados</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-outline-secondary w-100" onclick="showAdvancedFilters()">
+                            <i class="bi bi-funnel me-1"></i>
+                            Filtros Avançados
+                        </button>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-success w-100" onclick="showNewSaleForm()">
+                            <i class="bi bi-plus-circle me-1"></i>
+                            Nova Venda
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Filter Chips -->
+                <div class="mb-3">
+                    <span class="filter-chip active" onclick="filterBySeller('all')">Todos</span>
+                    <span class="filter-chip" onclick="filterBySeller('me')">Minhas Vendas</span>
+                    <span class="filter-chip" onclick="filterByPayment('pix')">PIX</span>
+                    <span class="filter-chip" onclick="filterByPayment('card')">Cartão</span>
+                    <span class="filter-chip" onclick="filterByAmount('high')">Alto Valor</span>
+                    <span class="filter-chip" onclick="filterByDate('today')">Hoje</span>
+                </div>
+            </div>
+
+            <!-- Bulk Actions -->
+            <div class="bulk-actions d-none" id="bulkActionsPanel">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <span id="selectedCount">0</span> vendas selecionadas
+                    </div>
+                    <div>
+                        <button class="btn btn-sm btn-success me-2" onclick="bulkMarkPaid()">
+                            <i class="bi bi-check-circle me-1"></i>
+                            Marcar como Pago
+                        </button>
+                        <button class="btn btn-sm btn-warning me-2" onclick="bulkSendReminder()">
+                            <i class="bi bi-bell me-1"></i>
+                            Enviar Lembrete
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="bulkDelete()">
+                            <i class="bi bi-trash me-1"></i>
+                            Excluir
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Enhanced Sales Table -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history me-2"></i>
+                        Vendas Recentes
+                    </h5>
+                    <div class="d-flex align-items-center">
+                        <button class="btn btn-sm btn-light me-2" onclick="toggleTableView()">
+                            <i class="bi bi-grid-3x3-gap me-1"></i>
+                            Alternar Visualização
+                        </button>
+                        <button class="btn btn-sm btn-light" onclick="refreshSales()">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-hover mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Data</th>
+                                    <th>
+                                        <input type="checkbox" class="form-check-input" id="selectAll">
+                                    </th>
+                                    <th>
+                                        <a href="#" onclick="sortBy('date')">
+                                            Data <i class="bi bi-arrow-up-down"></i>
+                                        </a>
+                                    </th>
                                     <th>Cliente</th>
                                     <th>Produtos</th>
                                     <th>Pagamento</th>
-                                    <th>Total</th>
+                                    <th>
+                                        <a href="#" onclick="sortBy('total')">
+                                            Total <i class="bi bi-arrow-up-down"></i>
+                                        </a>
+                                    </th>
+                                    <th>Status</th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <% recentSales.forEach(sale => { %>
                                 <tr>
-                                    <td><%= new Date(sale.sale_date).toLocaleDateString('pt-BR') %></td>
-                                    <td><%= sale.client_name || 'Não informado' %></td>
                                     <td>
-                                        <% sale.products.forEach(product => { %>
-                                        <div class="badge bg-secondary me-1">
-                                            <%= product.quantity %>x <%= product.name %>
+                                        <input type="checkbox" class="form-check-input sale-checkbox" value="1">
+                                    </td>
+                                    <td>12/07/2025</td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar bg-primary text-white rounded-circle me-2" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 12px;">
+                                                CC
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold">Cláudia Cristina</div>
+                                                <small class="text-muted">Cliente VIP</small>
+                                            </div>
                                         </div>
-                                        <% }) %>
                                     </td>
                                     <td>
-                                        <% sale.payment_methods.forEach(method => { %>
-                                            <div class="badge bg-info mb-2">
-                                              <strong><%= method.method %>:</strong> R$ <%= Number(method.amount).toFixed(2) %>
-                                          
-                                              <% 
-                                                // Fallback para array vazio e busca da próxima parcela não paga
-                                                const parcels = Array.isArray(method.parcels) ? method.parcels : [];
-                                                const nextInst = parcels.find(p => !p.paid);
-                                              %>
-                                          
-                                              <% if (method.paid) { %>
-                                                <i class="bi bi-check-circle-fill text-success ms-2" title="Pago"></i>
-                                              <% } else if (nextInst) { %>
-                                                <button
-                                                  class="btn btn-sm btn-outline-success mark-installment-paid ms-2"
-                                                  data-installment-id="<%= nextInst.id %>">
-                                                  Pagar parcela <%= nextInst.number %> — R$ <%= nextInst.value.toFixed(2) %>
-                                                </button>
-                                              <% } else { %>
-                                                <!-- Nenhuma parcela pendente -->
-                                                <small class="text-muted ms-2">Sem parcelas pendentes</small>
-                                              <% } %>
-                                            </div>
-                                          <% }) %>
-                                          
-                                    </td>                                      
-                                    <td class="fw-bold">R$ <%= Number(sale.total).toFixed(2) %></td>
+                                        <div class="badge bg-secondary me-1">1x Essencial Supreme</div>
+                                        <br>
+                                        <small class="text-muted">Categoria: Perfumes</small>
+                                    </td>
                                     <td>
-                                        <button class="btn btn-sm btn-outline-primary me-1"
-                                            onclick="loadSale('<%= sale.id %>')">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-danger"
-                                            onclick="deleteSale('<%= sale.id %>')">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
+                                        <div class="badge bg-info mb-1">
+                                            <strong>PIX:</strong> R$ 189,90
+                                            <i class="bi bi-check-circle-fill text-success ms-1"></i>
+                                        </div>
+                                        <div class="payment-timeline">
+                                            <div class="payment-timeline-item">
+                                                <small class="text-muted">Pago em 12/07/2025</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="fw-bold">R$ 189,90</td>
+                                    <td>
+                                        <span class="status-badge status-paid">
+                                            <i class="bi bi-check-circle me-1"></i>
+                                            Pago
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <button class="btn btn-sm btn-outline-primary" onclick="viewSale(1)" title="Visualizar">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-secondary" onclick="editSale(1)" title="Editar">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-success" onclick="duplicateSale(1)" title="Duplicar">
+                                                <i class="bi bi-files"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-warning" onclick="printReceipt(1)" title="Imprimir">
+                                                <i class="bi bi-printer"></i>
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger" onclick="deleteSale(1)" title="Excluir">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
-                                <% }) %>
+                                <!-- More sample rows can be added here -->
                             </tbody>
                         </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    <div class="d-flex justify-content-between align-items-center p-3">
+                        <small class="text-muted">Mostrando 1-10 de 127 vendas</small>
+                        <nav>
+                            <ul class="pagination pagination-sm mb-0">
+                                <li class="page-item disabled">
+                                    <a class="page-link" href="#" tabindex="-1">Anterior</a>
+                                </li>
+                                <li class="page-item active">
+                                    <a class="page-link" href="#">1</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="#">2</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="#">3</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="#">Próximo</a>
+                                </li>
+                            </ul>
+                        </nav>
                     </div>
                 </div>
             </div>
 
-            <!-- Modal de edição de venda -->
-            <div class="modal fade" id="editSaleModal" tabindex="-1" aria-labelledby="editSaleModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-lg">
-                <form id="editSaleForm">
-                    <div class="modal-content">
+            <!-- Floating Summary Panel -->
+            <div class="floating-summary d-none" id="floatingSummary">
+                <h6 class="mb-3">
+                    <i class="bi bi-graph-up me-2"></i>
+                    Resumo da Sessão
+                </h6>
+                <div class="row text-center">
+                    <div class="col-4">
+                        <div class="h5 text-primary mb-0" id="sessionSales">3</div>
+                        <small class="text-muted">Vendas</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="h5 text-success mb-0" id="sessionRevenue">R$ 450</div>
+                        <small class="text-muted">Receita</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="h5 text-info mb-0" id="sessionCommission">R$ 45</div>
+                        <small class="text-muted">Comissão</small>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-outline-secondary w-100 mt-3" onclick="toggleFloatingSummary()">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Enhanced New Sale Modal -->
+        <div class="modal fade" id="newSaleModal" tabindex="-1" aria-labelledby="newSaleModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="editSaleModalLabel">Editar Venda</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                        <h5 class="modal-title" id="newSaleModalLabel">
+                            <i class="bi bi-cart-plus me-2"></i>Nova Venda
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
-                        <!-- Campos semelhantes ao formulário de nova venda -->
-                        <div class="row g-3 mb-4">
-                            <div class="col-md-6">
-                                <label class="form-label">Cliente</label>
-                                <select class="form-select" id="editClientSelect" required>
+                        <div class="row">
+                            <!-- Cliente Selection -->
+                            <div class="col-md-12 mb-3">
+                                <label for="customerSelect" class="form-label">Cliente</label>
+                                <select class="form-select" id="customerSelect" required>
                                     <option value="">Selecione um cliente...</option>
-                                    <% clients.forEach(client => { %>
-                                    <option value="<%= client.id %>"><%= client.name %></option>
-                                    <% }) %>
                                 </select>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Data da Venda</label>
-                                <input type="datetime-local" class="form-control" id="editSaleDate" required>
+
+                            <!-- Products Grid -->
+                            <div class="col-md-8">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-0">Produtos</h6>
+                                            <div class="input-group" style="width: 300px;">
+                                                <input type="text" class="form-control" id="productSearch" placeholder="Buscar produtos...">
+                                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row" id="productGrid">
+                                            <!-- Products will be dynamically loaded here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Cart Summary -->
+                            <div class="col-md-4">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">Carrinho</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="cartSummary">
+                                            <!-- Cart items will be dynamically loaded here -->
+                                        </div>
+                                        <hr>
+                                        <div class="mt-3">
+                                            <div class="d-flex justify-content-between mb-2">
+                                                <span>Subtotal:</span>
+                                                <span id="subtotalAmount">R$ 0,00</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between mb-2">
+                                                <span>Juros:</span>
+                                                <span id="interestAmount">R$ 0,00</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between mb-2">
+                                                <span>Total:</span>
+                                                <span id="totalAmount" class="fw-bold">R$ 0,00</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between mb-2">
+                                                <span>Pago:</span>
+                                                <span id="paidAmount">R$ 0,00</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between mb-2" id="remainingRow">
+                                                <span>Restante:</span>
+                                                <span id="remainingAmount">R$ 0,00</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Payment Methods -->
+                                <div class="card mt-3">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0">Formas de Pagamento</h6>
+                                        <button class="btn btn-sm btn-outline-primary" id="addPaymentBtn" type="button">
+                                            <i class="bi bi-plus"></i> Adicionar
+                                        </button>
+                                    </div>
+                                    <div class="card-body">
+                                        <!-- Payment Method 1 -->
+                                        <div id="payment1" class="payment-method-container mb-3">
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <h6>Pagamento 1</h6>
+                                            </div>
+                                            <select class="form-select mb-2 payment-method" data-payment="1" required>
+                                                <option value="">Selecione...</option>
+                                                <option value="dinheiro">Dinheiro</option>
+                                                <option value="pix">PIX</option>
+                                                <option value="credito">Cartão de Crédito</option>
+                                                <option value="debito">Cartão de Débito</option>
+                                                <option value="pix_credito">PIX Crédito</option>
+                                            </select>
+                                            <div class="input-group mb-2">
+                                                <span class="input-group-text">R$</span>
+                                                <input type="number" class="form-control payment-amount" data-payment="1" min="0" step="0.01" required>
+                                            </div>
+                                            <div id="installments1" class="installments-section d-none">
+                                                <div class="row g-2">
+                                                    <div class="col-6">
+                                                        <label class="form-label">Parcelas</label>
+                                                        <select class="form-select payment-installments" data-payment="1">
+                                                            <option value="1">1x</option>
+                                                            <option value="2">2x</option>
+                                                            <option value="3">3x</option>
+                                                            <option value="4">4x</option>
+                                                            <option value="5">5x</option>
+                                                            <option value="6">6x</option>
+                                                            <option value="7">7x</option>
+                                                            <option value="8">8x</option>
+                                                            <option value="9">9x</option>
+                                                            <option value="10">10x</option>
+                                                            <option value="11">11x</option>
+                                                            <option value="12">12x</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label">Juros %</label>
+                                                        <input type="number" class="form-control payment-interest" data-payment="1" value="0" min="0" step="0.1">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Payment Method 2 -->
+                                        <div id="payment2" class="payment-method-container mb-3 d-none">
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <h6>Pagamento 2</h6>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="removePaymentMethod(2)" type="button">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                            <select class="form-select mb-2 payment-method" data-payment="2">
+                                                <option value="">Selecione...</option>
+                                                <option value="dinheiro">Dinheiro</option>
+                                                <option value="pix">PIX</option>
+                                                <option value="credito">Cartão de Crédito</option>
+                                                <option value="debito">Cartão de Débito</option>
+                                                <option value="pix_credito">PIX Crédito</option>
+                                            </select>
+                                            <div class="input-group mb-2">
+                                                <span class="input-group-text">R$</span>
+                                                <input type="number" class="form-control payment-amount" data-payment="2" min="0" step="0.01">
+                                            </div>
+                                            <div id="installments2" class="installments-section d-none">
+                                                <div class="row g-2">
+                                                    <div class="col-6">
+                                                        <label class="form-label">Parcelas</label>
+                                                        <select class="form-select payment-installments" data-payment="2">
+                                                            <option value="1">1x</option>
+                                                            <option value="2">2x</option>
+                                                            <option value="3">3x</option>
+                                                            <option value="4">4x</option>
+                                                            <option value="5">5x</option>
+                                                            <option value="6">6x</option>
+                                                            <option value="7">7x</option>
+                                                            <option value="8">8x</option>
+                                                            <option value="9">9x</option>
+                                                            <option value="10">10x</option>
+                                                            <option value="11">11x</option>
+                                                            <option value="12">12x</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-6">
+                                                        <label class="form-label">Juros %</label>
+                                                        <input type="number" class="form-control payment-interest" data-payment="2" value="0" min="0" step="0.1">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <!-- Aqui você pode replicar os blocos de produtos e pagamentos -->
-                        <div id="editProductsContainer"></div>
-                        <div id="editPaymentsContainer"></div>
                     </div>
                     <div class="modal-footer">
-                        <button type="submit" class="btn btn-success">Salvar Alterações</button>
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" onclick="submitSale()">
+                            <i class="bi bi-check-circle me-1"></i>Finalizar Venda
+                        </button>
                     </div>
-                    </div>
-                </form>
                 </div>
             </div>
-      </main>
+        </div>
+    </main>
       
       <%- include('partials/footer.ejs') %>
+      <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const addPaymentBtn = document.getElementById('addPaymentBtn');
+            if (addPaymentBtn) {
+                addPaymentBtn.setAttribute('onclick', 'window.addPaymentMethod()');
+            }
+        });
+      </script>
 </body>
 </html>
