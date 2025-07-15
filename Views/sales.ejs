@@ -12,12 +12,10 @@
     
     <link rel="stylesheet" type="text/css" href="/styles/header.css">
     <link rel="stylesheet" type="text/css" href="/styles/sales.css">
-    <link rel="stylesheet" type="text/css" href="/styles/cart.css">
     <link rel="stylesheet" type="text/css" href="/styles/footer.css">
     
     <script src="JS/index.js" type="text/javascript" defer="defer"></script>
     <script src="JS/sales.js" type="text/javascript"></script>
-    <script src="JS/cart.js" type="text/javascript"></script>
     <script src="JS/notifications.js" type="text/javascript" ></script>
 </head>
 <body>
@@ -90,6 +88,9 @@
                 <h4 class="mb-3">
                     <i class="bi bi-graph-up me-2"></i>
                     Analytics de Vendas
+                    <button class="btn btn-sm btn-outline-primary float-end" onclick="refreshAnalytics()">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
                 </h4>
                 <div class="row g-3">
                     <div class="col-md-3">
@@ -97,11 +98,11 @@
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <h6 class="mb-0">Vendas Hoje</h6>
-                                    <div class="animated-counter" id="salesToday">8</div>
+                                    <div class="animated-counter" id="salesToday">0</div>
                                 </div>
-                                <i class="bi bi-arrow-up-right text-success" style="font-size: 1.5rem;"></i>
+                                <i class="bi bi-cart text-success" style="font-size: 1.5rem;"></i>
                             </div>
-                            <small class="text-light">+15% vs ontem</small>
+                            <small class="text-light" data-metric="sales-change">Carregando...</small>
                         </div>
                     </div>
                     <div class="col-md-3">
@@ -109,23 +110,11 @@
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <h6 class="mb-0">Receita Hoje</h6>
-                                    <div class="animated-counter">R$ 1.250</div>
+                                    <div class="animated-counter" data-metric="revenue-today">R$ 0,00</div>
                                 </div>
                                 <i class="bi bi-currency-dollar text-success" style="font-size: 1.5rem;"></i>
                             </div>
-                            <small class="text-light">+22% vs ontem</small>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="metric-card">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 class="mb-0">Ticket Médio</h6>
-                                    <div class="animated-counter">R$ 156</div>
-                                </div>
-                                <i class="bi bi-receipt text-info" style="font-size: 1.5rem;"></i>
-                            </div>
-                            <small class="text-light">+5% vs média</small>
+                            <small class="text-light" data-metric="revenue-change">Carregando...</small>
                         </div>
                     </div>
                     <div class="col-md-3">
@@ -133,47 +122,56 @@
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <h6 class="mb-0">Conversão</h6>
-                                    <div class="animated-counter">68%</div>
+                                    <div class="animated-counter" data-metric="conversion-rate">0%</div>
                                 </div>
                                 <i class="bi bi-target text-warning" style="font-size: 1.5rem;"></i>
                             </div>
-                            <small class="text-light">+12% vs meta</small>
+                            <small class="text-light" data-metric="conversion-change">Carregando...</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="metric-card">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-0">Clientes Ativos</h6>
+                                    <div class="animated-counter" data-metric="active-clients">0</div>
+                                </div>
+                                <i class="bi bi-people text-info" style="font-size: 1.5rem;"></i>
+                            </div>
+                            <small class="text-light" data-metric="client-growth">Carregando...</small>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Product Suggestions -->
+            <!-- Product Suggestions - now with real data -->
             <div class="product-suggestion">
                 <h5 class="mb-3">
                     <i class="bi bi-lightbulb me-2"></i>
-                    Sugestões Inteligentes
+                    Insights Inteligentes
                 </h5>
                 <div class="row">
                     <div class="col-md-4">
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-fire me-2"></i>
-                            <div>
-                                <strong>Produto em Alta:</strong><br>
-                                <small>Perfume Floratta - 15 vendas esta semana</small>
+                        <div class="card">
+                            <div class="card-body">
+                                <h6>Produtos em Alta</h6>
+                                <div data-section="top-products">Carregando...</div>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-exclamation-triangle me-2"></i>
-                            <div>
-                                <strong>Estoque Baixo:</strong><br>
-                                <small>Shampoo Natura - Apenas 5 unidades</small>
+                        <div class="card">
+                            <div class="card-body">
+                                <h6>Tendência de Receita</h6>
+                                <div data-section="revenue-trend">Carregando...</div>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-star me-2"></i>
-                            <div>
-                                <strong>Recomendação:</strong><br>
-                                <small>Combinar com Hidratante Corporal</small>
+                        <div class="card">
+                            <div class="card-body">
+                                <h6>Métodos de Pagamento</h6>
+                                <div data-section="payment-methods">Carregando...</div>
                             </div>
                         </div>
                     </div>
@@ -186,11 +184,12 @@
                     <div class="col-md-4">
                         <div class="search-enhance">
                             <i class="bi bi-search search-icon"></i>
-                            <input type="text" class="form-control" id="searchSales" placeholder="Buscar vendas, clientes, produtos...">
+                            <input type="text" class="form-control" id="salesSearchInput" placeholder="Buscar por ID, cliente, produto...">
                         </div>
                     </div>
                     <div class="col-md-2">
-                        <select class="form-select" id="dateRange">
+                        <select class="form-select" id="dateRangeFilter">
+                            <option value="">Todas as datas</option>
                             <option value="today">Hoje</option>
                             <option value="week">Esta Semana</option>
                             <option value="month">Este Mês</option>
@@ -202,32 +201,106 @@
                             <option value="">Todos Status</option>
                             <option value="paid">Pagos</option>
                             <option value="pending">Pendentes</option>
-                            <option value="overdue">Atrasados</option>
+                            <option value="partial">Parciais</option>
                         </select>
                     </div>
                     <div class="col-md-2">
-                        <button class="btn btn-outline-secondary w-100" onclick="showAdvancedFilters()">
-                            <i class="bi bi-funnel me-1"></i>
-                            Filtros Avançados
+                        <button class="btn btn-outline-secondary w-100" onclick="showAdvancedFiltersModal()">
+                            <i class="bi bi-funnel me-1"></i>Filtros
                         </button>
                     </div>
                     <div class="col-md-2">
                         <button class="btn btn-success w-100" onclick="showNewSaleForm()">
-                            <i class="bi bi-plus-circle me-1"></i>
-                            Nova Venda
+                            <i class="bi bi-plus-circle me-1"></i>Nova Venda
                         </button>
                     </div>
                 </div>
                 
-                <!-- Filter Chips -->
-                <div class="mb-3">
-                    <span class="filter-chip active" onclick="filterBySeller('all')">Todos</span>
-                    <span class="filter-chip" onclick="filterBySeller('me')">Minhas Vendas</span>
-                    <span class="filter-chip" onclick="filterByPayment('pix')">PIX</span>
-                    <span class="filter-chip" onclick="filterByPayment('card')">Cartão</span>
-                    <span class="filter-chip" onclick="filterByAmount('high')">Alto Valor</span>
-                    <span class="filter-chip" onclick="filterByDate('today')">Hoje</span>
+                <!-- Custom Date Range (hidden by default) -->
+                <div class="row g-3 mb-3 d-none" id="customDateRange">
+                    <div class="col-md-3">
+                        <label class="form-label">Data Início</label>
+                        <input type="date" class="form-control" id="startDateFilter">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Data Fim</label>
+                        <input type="date" class="form-control" id="endDateFilter">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <button class="btn btn-primary w-100" onclick="applyCustomDateFilter()">Aplicar</button>
+                    </div>
                 </div>
+                
+                <!-- Current Filters Display -->
+                <div class="mb-3" id="activeFiltersContainer">
+                    <div class="d-flex align-items-center flex-wrap">
+                        <span class="me-2 text-muted">Filtros ativos:</span>
+                        <div id="currentFiltersDisplay">
+                            <span class="text-muted">Nenhum filtro aplicado</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Advanced Filters Modal -->
+            <div class="modal fade" id="advancedFiltersModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Filtros Avançados</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Cliente</label>
+                                    <select class="form-select" id="advancedClientFilter">
+                                        <option value="">Todos os clientes</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Método de Pagamento</label>
+                                    <select class="form-select" id="advancedPaymentFilter">
+                                        <option value="">Todos os métodos</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Valor Mínimo</label>
+                                    <input type="number" class="form-control" id="minValueFilter" placeholder="R$ 0,00" step="0.01">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Valor Máximo</label>
+                                    <input type="number" class="form-control" id="maxValueFilter" placeholder="R$ 1000,00" step="0.01">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Produto</label>
+                                    <select class="form-select" id="advancedProductFilter">
+                                        <option value="">Todos os produtos</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Status de Parcelas</label>
+                                    <select class="form-select" id="installmentStatusFilter">
+                                        <option value="">Todos</option>
+                                        <option value="current">Em dia</option>
+                                        <option value="overdue">Em atraso</option>
+                                        <option value="paid">Quitadas</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" onclick="clearAllFilters()">Limpar Filtros</button>
+                            <button type="button" class="btn btn-primary" onclick="applyAdvancedFilters()">Aplicar Filtros</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sales Statistics -->
+            <div id="salesStatsContainer" class="mb-4">
+                <!-- Stats will be populated dynamically -->
             </div>
 
             <!-- Bulk Actions -->
@@ -238,16 +311,16 @@
                     </div>
                     <div>
                         <button class="btn btn-sm btn-success me-2" onclick="bulkMarkPaid()">
-                            <i class="bi bi-check-circle me-1"></i>
-                            Marcar como Pago
+                            <i class="bi bi-check-circle me-1"></i>Marcar como Pago
                         </button>
                         <button class="btn btn-sm btn-warning me-2" onclick="bulkSendReminder()">
-                            <i class="bi bi-bell me-1"></i>
-                            Enviar Lembrete
+                            <i class="bi bi-bell me-1"></i>Enviar Lembrete
+                        </button>
+                        <button class="btn btn-sm btn-info me-2" onclick="exportFilteredSales()">
+                            <i class="bi bi-download me-1"></i>Exportar Selecionadas
                         </button>
                         <button class="btn btn-sm btn-danger" onclick="bulkDelete()">
-                            <i class="bi bi-trash me-1"></i>
-                            Excluir
+                            <i class="bi bi-trash me-1"></i>Excluir
                         </button>
                     </div>
                 </div>
@@ -257,129 +330,56 @@
             <div class="card shadow-sm">
                 <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
-                        <i class="bi bi-clock-history me-2"></i>
-                        Vendas Recentes
+                        <i class="bi bi-table me-2"></i>Todas as Vendas
                     </h5>
                     <div class="d-flex align-items-center">
-                        <button class="btn btn-sm btn-light me-2" onclick="toggleTableView()">
-                            <i class="bi bi-grid-3x3-gap me-1"></i>
-                            Alternar Visualização
+                        <button class="btn btn-sm btn-light me-2" onclick="toggleTableDensity()">
+                            <i class="bi bi-list me-1"></i>Densidade
                         </button>
-                        <button class="btn btn-sm btn-light" onclick="refreshSales()">
-                            <i class="bi bi-arrow-clockwise"></i>
+                        <button class="btn btn-sm btn-light" onclick="exportFilteredSales()">
+                            <i class="bi bi-download"></i>
                         </button>
                     </div>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
-                        <table class="table table-hover mb-0">
+                        <table class="table table-hover mb-0" id="salesTable">
                             <thead class="table-light">
                                 <tr>
-                                    <th>
-                                        <input type="checkbox" class="form-check-input" id="selectAll">
+                                    <th style="width: 40px;">
+                                        <input type="checkbox" class="form-check-input" id="selectAllSales">
                                     </th>
-                                    <th>
-                                        <a href="#" onclick="sortBy('date')">
-                                            Data <i class="bi bi-arrow-up-down"></i>
-                                        </a>
+                                    <th data-sort="sale_date" class="sortable-header" onclick="sortSalesTable('sale_date')">
+                                        Venda <i class="bi bi-arrow-up-down"></i>
                                     </th>
-                                    <th>Cliente</th>
+                                    <th data-sort="client_name" class="sortable-header" onclick="sortSalesTable('client_name')">
+                                        Cliente <i class="bi bi-arrow-up-down"></i>
+                                    </th>
                                     <th>Produtos</th>
                                     <th>Pagamento</th>
-                                    <th>
-                                        <a href="#" onclick="sortBy('total')">
-                                            Total <i class="bi bi-arrow-up-down"></i>
-                                        </a>
+                                    <th data-sort="total" class="sortable-header" onclick="sortSalesTable('total')">
+                                        Total <i class="bi bi-arrow-up-down"></i>
                                     </th>
-                                    <th>Status</th>
-                                    <th>Ações</th>
+                                    <th data-sort="payment_status" class="sortable-header" onclick="sortSalesTable('payment_status')">
+                                        Status <i class="bi bi-arrow-up-down"></i>
+                                    </th>
+                                    <th style="width: 140px;">Ações</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                <tr>
-                                    <td>
-                                        <input type="checkbox" class="form-check-input sale-checkbox" value="1">
-                                    </td>
-                                    <td>12/07/2025</td>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <div class="avatar bg-primary text-white rounded-circle me-2" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 12px;">
-                                                CC
-                                            </div>
-                                            <div>
-                                                <div class="fw-bold">Cláudia Cristina</div>
-                                                <small class="text-muted">Cliente VIP</small>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div class="badge bg-secondary me-1">1x Essencial Supreme</div>
-                                        <br>
-                                        <small class="text-muted">Categoria: Perfumes</small>
-                                    </td>
-                                    <td>
-                                        <div class="badge bg-info mb-1">
-                                            <strong>PIX:</strong> R$ 189,90
-                                            <i class="bi bi-check-circle-fill text-success ms-1"></i>
-                                        </div>
-                                        <div class="payment-timeline">
-                                            <div class="payment-timeline-item">
-                                                <small class="text-muted">Pago em 12/07/2025</small>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="fw-bold">R$ 189,90</td>
-                                    <td>
-                                        <span class="status-badge status-paid">
-                                            <i class="bi bi-check-circle me-1"></i>
-                                            Pago
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <div class="btn-group" role="group">
-                                            <button class="btn btn-sm btn-outline-primary" onclick="viewSale(1)" title="Visualizar">
-                                                <i class="bi bi-eye"></i>
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-secondary" onclick="editSale(1)" title="Editar">
-                                                <i class="bi bi-pencil"></i>
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-success" onclick="duplicateSale(1)" title="Duplicar">
-                                                <i class="bi bi-files"></i>
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-warning" onclick="printReceipt(1)" title="Imprimir">
-                                                <i class="bi bi-printer"></i>
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-danger" onclick="deleteSale(1)" title="Excluir">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <!-- More sample rows can be added here -->
+                            <tbody id="salesTableBody">
+                                <!-- Table content will be populated dynamically -->
                             </tbody>
                         </table>
                     </div>
                     
                     <!-- Pagination -->
-                    <div class="d-flex justify-content-between align-items-center p-3">
-                        <small class="text-muted">Mostrando 1-10 de 127 vendas</small>
+                    <div class="d-flex justify-content-between align-items-center p-3 border-top">
+                        <div>
+                            <small class="text-muted" id="paginationStats">Carregando...</small>
+                        </div>
                         <nav>
-                            <ul class="pagination pagination-sm mb-0">
-                                <li class="page-item disabled">
-                                    <a class="page-link" href="#" tabindex="-1">Anterior</a>
-                                </li>
-                                <li class="page-item active">
-                                    <a class="page-link" href="#">1</a>
-                                </li>
-                                <li class="page-item">
-                                    <a class="page-link" href="#">2</a>
-                                </li>
-                                <li class="page-item">
-                                    <a class="page-link" href="#">3</a>
-                                </li>
-                                <li class="page-item">
-                                    <a class="page-link" href="#">Próximo</a>
-                                </li>
+                            <ul class="pagination pagination-sm mb-0" id="salesPagination">
+                                <!-- Pagination will be populated dynamically -->
                             </ul>
                         </nav>
                     </div>
@@ -449,6 +449,17 @@
                                             <!-- Products will be dynamically loaded here -->
                                         </div>
                                     </div>
+                                    <!-- Remove this erroneous section that's currently there: -->
+                                    <div class="d-flex justify-content-between align-items-center p-3 border-top">
+                                        <div>
+                                            <small class="text-muted" id="paginationStats">Carregando...</small>
+                                        </div>
+                                        <nav>
+                                            <ul class="pagination pagination-sm mb-0" id="salesPagination">
+                                                <!-- Pagination will be populated dynamically -->
+                                            </ul>
+                                        </nav>
+                                    </div>
                                 </div>
                             </div>
 
@@ -504,11 +515,6 @@
                                             </div>
                                             <select class="form-select mb-2 payment-method" data-payment="1" required>
                                                 <option value="">Selecione...</option>
-                                                <option value="dinheiro">Dinheiro</option>
-                                                <option value="pix">PIX</option>
-                                                <option value="credito">Cartão de Crédito</option>
-                                                <option value="debito">Cartão de Débito</option>
-                                                <option value="pix_credito">PIX Crédito</option>
                                             </select>
                                             <div class="input-group mb-2">
                                                 <span class="input-group-text">R$</span>
@@ -551,11 +557,6 @@
                                             </div>
                                             <select class="form-select mb-2 payment-method" data-payment="2">
                                                 <option value="">Selecione...</option>
-                                                <option value="dinheiro">Dinheiro</option>
-                                                <option value="pix">PIX</option>
-                                                <option value="credito">Cartão de Crédito</option>
-                                                <option value="debito">Cartão de Débito</option>
-                                                <option value="pix_credito">PIX Crédito</option>
                                             </select>
                                             <div class="input-group mb-2">
                                                 <span class="input-group-text">R$</span>
