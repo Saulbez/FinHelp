@@ -31,6 +31,7 @@ app.use(session({
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Create missing directories if they don't exist
 const setupDirectories = () => {
   // Create lowercase directories
   if (!fs.existsSync(path.join(__dirname, 'public/styles'))) {
@@ -43,6 +44,11 @@ const setupDirectories = () => {
     fs.mkdirSync(path.join(__dirname, 'public/js'), { recursive: true });
     console.log('Created lowercase js directory');
   }
+  
+if (!fs.existsSync(path.join(__dirname, 'public/images/products'))) {
+    fs.mkdirSync(path.join(__dirname, 'public/images/products'), { recursive: true });
+    console.log('Created product images directory');
+}
   
   // Copy files from uppercase to lowercase directories
   try {
@@ -74,6 +80,7 @@ const setupDirectories = () => {
   }
 };
 
+// Call this function before starting your Express app
 setupDirectories();
 
 // ========== MIDDLEWARE SETUP ==========
@@ -856,9 +863,10 @@ app.post('/api/produtos', upload.single('image'), requireAuth, async (req, res) 
             return res.status(400).json({ error: "Marca não encontrada" });
         }
         
+        // Use default image if no file was uploaded
         const imagePath = req.file ? 
             `/images/products/${req.file.filename}` : 
-            '/images/default-product.jpg';
+            '/images/products/default-product.png';  // Fixed path
 
         const result = await pool.query(
             `INSERT INTO products (name, brand, price, stock, image, profit_percent, category, user_id) 
@@ -893,6 +901,10 @@ app.put('/api/produtos/:id', upload.single('image'), requireAuth, async (req, re
         if (req.file) {
             imagePath = `/images/products/${req.file.filename}`;
         }
+        // If imagePath is falsy, use default image
+        if (!imagePath) {
+            imagePath = '/images/products/default-product.png';
+        }
 
         const result = await pool.query(
             `UPDATE products SET
@@ -917,15 +929,19 @@ app.delete('/produtos/:id', requireAuth, async (req, res) => {
         
         const productId = req.params.id;
         
-        // Check if product exists
+        // Get product info including image path before deletion
         const productCheck = await client.query(
-            'SELECT id, name FROM products WHERE id = $1 AND user_id = $2',
+            'SELECT id, name, image FROM products WHERE id = $1 AND user_id = $2',
             [productId, req.session.userId]
         );
         
         if (productCheck.rows.length === 0) {
             return res.status(404).json({ error: 'Produto não encontrado' });
         }
+
+        const imagePath = productCheck.rows[0].image;
+        const productName = productCheck.rows[0].name;
+        const defaultImagePath = '/images/products/default-product.png';
 
         // Check for sales associated with this product
         const salesCheck = await client.query(
@@ -936,13 +952,20 @@ app.delete('/produtos/:id', requireAuth, async (req, res) => {
         const salesCount = parseInt(salesCheck.rows[0].sales_count);
         
         if (salesCount > 0) {
-            // Create a "deleted product" record in the system if it doesn't exist
-            const productName = productCheck.rows[0].name;
+            // Check if name already starts with "Produto Removido" to prevent recursion
+            let newProductName;
+            if (productName.startsWith('Produto Removido (')) {
+                // If already marked as removed, don't change the name
+                newProductName = productName;
+            } else {
+                // Otherwise, prefix with "Produto Removido"
+                newProductName = `Produto Removido (${productName})`;
+            }
             
             // Update product instead of deleting
             await client.query(
                 "UPDATE products SET name = $1, deleted = TRUE WHERE id = $2 AND user_id = $3",
-                [`Produto Removido (${productName})`, productId, req.session.userId]
+                [newProductName, productId, req.session.userId]
             );
             
             await client.query('COMMIT');
@@ -953,11 +976,29 @@ app.delete('/produtos/:id', requireAuth, async (req, res) => {
             });
         }
         
-        // If no sales, simply delete the product
+        // If no sales, delete the product and its image
         await client.query(
             'DELETE FROM products WHERE id = $1 AND user_id = $2', 
             [productId, req.session.userId]
         );
+        
+        // Delete the image file if it's not the default image
+        if (imagePath && imagePath !== defaultImagePath && !imagePath.includes('default-product')) {
+            const fullImagePath = path.join(__dirname, 'public', imagePath);
+            
+            // Delete file if it exists
+            fs.access(fullImagePath, fs.constants.F_OK, (err) => {
+                if (!err) {
+                    fs.unlink(fullImagePath, (unlinkErr) => {
+                        if (unlinkErr) {
+                            console.error(`Failed to delete image ${fullImagePath}:`, unlinkErr);
+                        } else {
+                            console.log(`Deleted product image: ${fullImagePath}`);
+                        }
+                    });
+                }
+            });
+        }
         
         await client.query('COMMIT');
         res.json({ success: true, message: 'Produto excluído com sucesso' });

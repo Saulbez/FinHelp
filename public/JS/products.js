@@ -270,7 +270,9 @@ function createProductCard(product) {
     col.innerHTML = `
         <div class="card h-100 shadow-sm">
             <div class="position-relative">
-                <img src="${product.image}" class="card-img-top object-fit-cover" alt="${product.name}" style="height: 200px;">
+                <img src="${product.image}" class="card-img-top object-fit-cover" 
+                     alt="${product.name}" style="height: 200px;"
+                     onerror="this.onerror=null; this.src='/images/products/default-product.png';">
                 ${isOnSale ? '<span class="badge bg-danger position-absolute top-0 start-0 m-2">PROMOÇÃO</span>' : ''}
                 ${isLowStock ? '<span class="badge bg-warning position-absolute top-0 end-0 m-2">ESTOQUE BAIXO</span>' : ''}
             </div>
@@ -308,6 +310,22 @@ function createProductCard(product) {
     `;
     
     return col;
+}
+
+function handleImagePreview(event, previewId) {
+    const file = event.target.files[0];
+    const preview = document.getElementById(previewId);
+    
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    } else {
+        // Set to default image if no file selected
+        preview.src = '/images/products/default-product.png';
+    }
 }
 
 // Clear all filters
@@ -366,7 +384,7 @@ async function handleNewProductSubmit(e) {
 function resetNewProductForm() {
     const form = document.getElementById('newProductForm');
     form.reset();
-    document.getElementById('newImagePreview').src = '/images/products/placeholder.png';
+    document.getElementById('newImagePreview').src = '/images/products/default-product.png';
     
     // Reset calculator
     document.getElementById('newCostPrice').value = '';
