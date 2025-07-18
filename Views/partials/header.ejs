@@ -22,7 +22,7 @@
     </nav>
     <div class="profit">
         <p>Lucro Mensal :</p>
-        <p><%= (typeof monthlyProfit === 'number') ? monthlyProfit : 'Erro ao calcular' %></p>
+        <p id="monthlyProfitValue"><%= (typeof monthlyProfit === 'number') ? monthlyProfit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : 'Erro ao calcular' %></p>
     </div>
 </header>
 <body>

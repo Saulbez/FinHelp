@@ -1,110 +1,425 @@
 :root {
-    --primary-color: #5426af;    /* Cor principal */
-    --primary-hover: #3a1c7a;    /* Hover escuro */
-    --secondary-color: #e8e2f3;  /* Fundo suave */
-    --accent-color: #48e5c2;     /* Destaques (teal) */
+    --primary-color: #5426af;
+    --primary-hover: #3a1c7a;
+    --primary-light: #6b46c1;
+    --secondary-color: #e8e2f3;
+    --accent-color: #48e5c2;
     --text-dark: #2a2a2a;
     --text-light: #ffffff;
-  }
+    --text-gray: #6b7280;
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --border-radius: 0.75rem;
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
-header{
-    background-color: var(--primary-color);
-    height: 5rem;
+* {
+    box-sizing: border-box;
+}
+
+/* Enhanced Header Layout */
+header {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+    height: auto;
+    min-height: 5rem;
     display: flex;
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-    padding: 0 .6rem;
+    padding: 1rem 1.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* Hamburger Menu - Left side */
 .hamburguer {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
     cursor: pointer;
+    padding: 0.75rem;
+    border-radius: var(--border-radius);
+    transition: var(--transition);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(5px);
+    width: 50px;
+    height: 50px;
+    order: 1;
 }
+
+.hamburguer:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.hamburguer:active {
+    transform: scale(0.95);
+}
+
 .hamburguer .line {
-    width: 30px;
+    width: 25px;
     height: 3px;
-    background-color: #fcfaf9;
-    margin: 6px 0;
+    background: linear-gradient(90deg, var(--text-light), var(--accent-color));
+    margin: 3px 0;
+    border-radius: 2px;
+    transition: var(--transition);
+    transform-origin: center;
 }
 
+/* Hamburger Animation */
+.hamburguer.active .line:nth-child(1) {
+    transform: rotate(45deg) translate(7px, 7px);
+}
+
+.hamburguer.active .line:nth-child(2) {
+    opacity: 0;
+    transform: translateX(-20px);
+}
+
+.hamburguer.active .line:nth-child(3) {
+    transform: rotate(-45deg) translate(7px, -7px);
+}
+
+/* Logo - Centered */
 h2#logo {
-    color: #fcfaf9;
+    color: var(--text-light);
     text-align: center;
-    font-size: 2.5rem;
-    margin-top: 0;
+    font-size: clamp(1.8rem, 4vw, 2.5rem);
+    font-weight: 700;
+    margin: 0;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    background: linear-gradient(135deg, var(--text-light), var(--accent-color));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    order: 2;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: .5rem;
 }
 
+h2#logo::before {
+    content: "💰";
+    font-size: 1.5rem;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+    -webkit-text-fill-color: initial;
+    background: none;
+}
+
+/* Navigation */
 nav {
-    z-index: 99;
-    height: 0px;
+    z-index: 999;
+    height: 0;
     position: absolute;
-    top: 65px;
+    top: 100%;
     left: 0;
     right: 0;
     width: 100%;
-    background-color: #5426af;
-    transition: .2s;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+    transition: var(--transition);
     overflow: hidden;
+    box-shadow: var(--shadow-lg);
+    border-bottom-left-radius: var(--border-radius);
+    border-bottom-right-radius: var(--border-radius);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: none;
 }
 
 nav.active {
-    height: 260px;
+    height: auto;
+    min-height: 280px;
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 div.routes {
-    box-shadow: 0px 4px 1px 2px rgba(0, 0, 0, 0.185);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: var(--border-radius);
+    margin: 1rem;
+    padding: 1rem 0;
 }
 
 nav ul {
     display: block;
-    width: fit-content;
-    margin: 10px auto 0;
+    width: 100%;
+    margin: 0;
     text-align: center;
-    transition: .5s;
+    transition: var(--transition);
     opacity: 0;
     list-style: none;
     padding: 0;
+    transform: translateY(-20px);
 }
+
 nav.active ul {
     opacity: 1;
+    transform: translateY(0);
+    animation: fadeInUp 0.4s ease-out 0.1s both;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+nav ul li {
+    padding: 0;
+    text-align: center;
+    font-size: 1.1rem;
+    margin: 0.5rem 0;
 }
 
 nav ul li a {
-    margin-bottom: 12px;
+    display: block;
+    padding: 1rem 2rem;
+    margin: 0.25rem 1rem;
     text-decoration: none;
     color: var(--text-light);
-    transition: color .3s;
+    transition: var(--transition);
+    border-radius: var(--border-radius);
+    font-weight: 500;
+    position: relative;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+nav ul li a::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: var(--transition);
+}
+
+nav ul li a:hover::before {
+    left: 100%;
 }
 
 nav ul li a:hover {
     color: var(--accent-color);
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--accent-color);
 }
 
-nav ul li {
-    padding: .5rem 1rem;
-    text-align: center;
-    font-size: 1.25rem;
-}
-
-div.profit p {
-    margin: 0;
-}
-
+/* Profit Display - Right side */
 div.profit {
     display: flex;
     flex-direction: row;
     align-items: center;
+    gap: 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.75rem 1rem;
+    border-radius: var(--border-radius);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(5px);
+    transition: var(--transition);
+    order: 3;
+}
+
+div.profit:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
 }
 
 div.profit p {
-    color: #fcfaf9;
+    margin: 0;
+    color: var(--text-light);
+    font-weight: 500;
+}
+
+div.profit > p:first-child {
+    font-size: 0.875rem;
+    opacity: 0.9;
 }
 
 div.profit > p:last-child {
-    background-color: rgba(0, 0, 0, 0.699);
-    padding: 0.5rem 1rem;
-    border-radius: .6rem;
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.6));
+    padding: 0.75rem 1.25rem;
+    border-radius: var(--border-radius);
     text-align: center;
-    margin-left: .2rem;
+    font-weight: 700;
+    font-size: 1rem;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--accent-color);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    position: relative;
+    overflow: hidden;
+}
+
+div.profit > p:last-child::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
+}
+
+/* Responsive Design */
+@media (min-width: 768px) {
+    header {
+        padding: 1rem 2rem;
+        justify-content: flex-start;
+        gap: 2rem;
+    }
+    
+    .hamburguer {
+        display: none;
+    }
+    
+    h2#logo {
+        position: static;
+        transform: none;
+        order: 1;
+    }
+    
+    nav {
+        position: static;
+        height: auto !important;
+        background: none;
+        box-shadow: none;
+        border: none;
+        overflow: visible;
+        backdrop-filter: none;
+        order: 2;
+        flex: 1;
+        margin-left: 2rem;
+    }
+    
+    div.routes {
+        box-shadow: none;
+        background: none;
+        border-radius: 0;
+        margin: 0;
+        padding: 0;
+    }
+    
+    nav ul {
+        display: flex;
+        opacity: 1 !important;
+        transform: none !important;
+        gap: 1rem;
+        align-items: center;
+        justify-content: flex-start;
+    }
+    
+    nav ul li {
+        margin: 0;
+    }
+    
+    nav ul li a {
+        margin: 0;
+        padding: 0.75rem 1.5rem;
+        background: rgba(255, 255, 255, 0.1);
+    }
+    
+    div.profit {
+        order: 3;
+        margin-left: auto;
+    }
+}
+
+@media (min-width: 1024px) {
+    header {
+        padding: 1.25rem 3rem;
+    }
+    
+    nav ul {
+        gap: 1.5rem;
+    }
+    
+    div.profit {
+        padding: 1rem 1.5rem;
+    }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Focus states for accessibility */
+.hamburguer:focus,
+nav ul li a:focus,
+div.profit:focus-within {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    header {
+        background: #000000;
+        border-bottom: 2px solid #ffffff;
+    }
+    
+    .hamburguer .line {
+        background: #ffffff;
+    }
+    
+    nav ul li a {
+        border: 2px solid #ffffff;
+    }
+}
+
+@keyframes highlight-profit {
+    0% {
+        color: #ffffff;
+        transform: scale(1);
+    }
+    50% {
+        color: #4caf50;
+        transform: scale(1.1);
+    }
+    100% {
+        color: #ffffff;
+        transform: scale(1);
+    }
+}
+
+.profit-updated {
+    animation: highlight-profit 2s ease-in-out;
 }

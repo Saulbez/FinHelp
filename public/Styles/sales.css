@@ -42,7 +42,7 @@ body {
 }
 
 .container {
-    max-width: 1400px;
+    max-width: 1550px;
 }
 
 /* Notification Bar */
@@ -658,4 +658,17 @@ button:focus,
     transform: translateY(-50%);
     color: #6c757d;
     z-index: 10;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-primary);
+}
+    
+.pagination .page-link {
+    color: var(--bs-primary);
+}
+
+.pagination .page-link:focus {
+    box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
 }

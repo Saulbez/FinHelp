@@ -94,6 +94,13 @@
                 data-bs-target="#newCampaignModal">
             <i class="bi bi-megaphone me-2"></i>Nova Campanha
         </button>
+        
+        <button class="btn btn-info rounded-pill px-4 py-2 d-flex align-items-center"
+                data-bs-toggle="modal" 
+                data-bs-target="#manageCampaignsModal"
+                id="manageCampaignsBtn">
+            <i class="bi bi-list-check me-2"></i>Gerenciar Campanhas
+        </button>
     </div>
 
     <!-- Filters Section -->
@@ -228,7 +235,7 @@
 
 <!-- New Product Modal -->
 <div class="modal fade" id="newProductModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title">
@@ -238,87 +245,146 @@
             </div>
             <form id="newProductForm" enctype="multipart/form-data">
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Imagem do Produto</label>
-                        <div class="image-upload-container text-center" onclick="document.getElementById('newImageInput').click()">
-                            <img src="/images/products/placeholder.png" 
-                                 id="newImagePreview" 
-                                 class="img-thumbnail mb-2" 
-                                 style="height: 150px; width: 150px; object-fit: cover;">
-                            <div>
-                                <i class="bi bi-camera-fill fs-4 text-muted d-block mb-2"></i>
-                                <small class="text-muted">Clique para selecionar uma imagem</small>
-                            </div>
-                        </div>
-                        <input type="file" 
-                               id="newImageInput" 
-                               name="image" 
-                               class="d-none" 
-                               accept="image/*">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Nome do Produto *</label>
-                        <input type="text" 
-                               name="name" 
-                               class="form-control" 
-                               required>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Marca *</label>
-                        <select name="brand" class="form-select" required>
-                            <option value="">Selecione uma marca</option>
-                            <% brands.forEach(brand => { %>
-                                <option value="<%= brand.id %>"><%= brand.name %></option>
-                            <% }) %>
-                        </select>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Categoria</label>
-                        <input type="text" 
-                               name="category" 
-                               class="form-control" 
-                               list="categoryList">
-                        <datalist id="categoryList">
-                            <% categories.forEach(category => { %>
-                                <option value="<%= category.category %>">
-                            <% }) %>
-                        </datalist>
-                    </div>
-                    
                     <div class="row">
+                        <!-- Left Column -->
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">Preço (R$) *</label>
-                                <input type="number" 
-                                       name="price" 
-                                       class="form-control" 
-                                       step="0.01" 
-                                       min="0" 
-                                       required>
+                                <label class="form-label">Imagem do Produto</label>
+                                <div class="image-upload-container text-center" onclick="document.getElementById('newImageInput').click()">
+                                    <img src="/images/products/placeholder.png" 
+                                         id="newImagePreview" 
+                                         class="img-thumbnail mb-2" 
+                                         style="height: 150px; width: 150px; object-fit: cover;">
+                                    <div>
+                                        <i class="bi bi-camera-fill fs-4 text-muted d-block mb-2"></i>
+                                        <small class="text-muted">Clique para selecionar uma imagem</small>
+                                    </div>
+                                </div>
+                                <input type="file" 
+                                       id="newImageInput" 
+                                       name="image" 
+                                       class="d-none" 
+                                       accept="image/*">
                             </div>
-                        </div>
-                        <div class="col-md-6">
+                            
                             <div class="mb-3">
-                                <label class="form-label">Estoque *</label>
-                                <input type="number" 
-                                       name="stock" 
+                                <label class="form-label">Nome do Produto *</label>
+                                <input type="text" 
+                                       name="name" 
                                        class="form-control" 
-                                       min="0" 
                                        required>
                             </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Marca *</label>
+                                <select name="brand" class="form-select" required>
+                                    <option value="">Selecione uma marca</option>
+                                    <% brands.forEach(brand => { %>
+                                        <option value="<%= brand.id %>"><%= brand.name %></option>
+                                    <% }) %>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Categoria</label>
+                                <input type="text" 
+                                       name="category" 
+                                       class="form-control" 
+                                       list="categoryList">
+                                <datalist id="categoryList">
+                                    <% categories.forEach(category => { %>
+                                        <option value="<%= category.category %>">
+                                    <% }) %>
+                                </datalist>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Preço (R$) *</label>
+                                        <input type="number" 
+                                               name="price" 
+                                               class="form-control" 
+                                               step="0.01" 
+                                               min="0" 
+                                               required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Estoque *</label>
+                                        <input type="number" 
+                                               name="stock" 
+                                               class="form-control" 
+                                               min="0" 
+                                               required>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Margem de Lucro (%)</label>
-                        <input type="number" 
-                               name="profit_percentual" 
-                               class="form-control" 
-                               step="0.01" 
-                               min="0">
+                        
+                        <!-- Right Column - Profit Calculator -->
+                        <div class="col-md-6">
+                            <div class="card bg-light h-100">
+                                <div class="card-header bg-success text-white">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-calculator me-2"></i>Calculadora de Lucro
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Valor de Compra (R$)</label>
+                                        <input type="number" 
+                                               id="newCostPrice" 
+                                               class="form-control profit-calculator" 
+                                               step="0.01" 
+                                               min="0"
+                                               placeholder="0.00">
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Valor de Venda (R$)</label>
+                                        <input type="number" 
+                                               id="newSellPrice" 
+                                               class="form-control profit-calculator" 
+                                               step="0.01" 
+                                               min="0"
+                                               placeholder="0.00">
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <div class="alert alert-info mb-3">
+                                                <div class="d-flex justify-content-between">
+                                                    <span><strong>Lucro:</strong></span>
+                                                    <span id="newProfitAmount" class="fw-bold">R$ 0,00</span>
+                                                </div>
+                                                <div class="d-flex justify-content-between">
+                                                    <span><strong>Percentual:</strong></span>
+                                                    <span id="newProfitPercent" class="fw-bold text-success">0%</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Ou Digite o Percentual de Lucro Diretamente (%)</label>
+                                        <input type="number" 
+                                               name="profit_percentual" 
+                                               id="newProfitPercentInput"
+                                               class="form-control" 
+                                               step="0.01" 
+                                               min="0"
+                                               placeholder="0.00">
+                                        <small class="text-muted">Este valor será salvo no produto</small>
+                                    </div>
+                                    
+                                    <button type="button" class="btn btn-outline-success btn-sm w-100" onclick="copyCalculatedProfit('new')">
+                                        <i class="bi bi-arrow-down me-2"></i>Usar Percentual Calculado
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -334,7 +400,7 @@
 
 <!-- Edit Product Modal -->
 <div class="modal fade" id="editProductModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <div class="modal-header bg-warning text-dark">
                 <h5 class="modal-title">
@@ -347,91 +413,149 @@
                 <input type="hidden" id="existingImage">
                 
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Imagem do Produto</label>
-                        <div class="image-upload-container text-center" onclick="document.getElementById('editImageInput').click()">
-                            <img id="editImagePreview" 
-                                 class="img-thumbnail mb-2" 
-                                 style="height: 150px; width: 150px; object-fit: cover;">
-                            <div>
-                                <i class="bi bi-camera-fill fs-4 text-muted d-block mb-2"></i>
-                                <small class="text-muted">Clique para alterar a imagem</small>
-                            </div>
-                        </div>
-                        <input type="file" 
-                               id="editImageInput" 
-                               name="image" 
-                               class="d-none" 
-                               accept="image/*">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Nome do Produto *</label>
-                        <input type="text" 
-                               id="editProductName" 
-                               name="name" 
-                               class="form-control" 
-                               required>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Marca *</label>
-                        <select id="editProductBrand" name="brand" class="form-select" required>
-                            <option value="">Selecione uma marca</option>
-                            <% brands.forEach(brand => { %>
-                                <option value="<%= brand.id %>"><%= brand.name %></option>
-                            <% }) %>
-                        </select>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Categoria</label>
-                        <input type="text" 
-                               id="editProductCategory" 
-                               name="category" 
-                               class="form-control" 
-                               list="editCategoryList">
-                        <datalist id="editCategoryList">
-                            <% categories.forEach(category => { %>
-                                <option value="<%= category.category %>">
-                            <% }) %>
-                        </datalist>
-                    </div>
-                    
                     <div class="row">
+                        <!-- Left Column -->
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">Preço (R$) *</label>
-                                <input type="number" 
-                                       id="editProductPrice" 
-                                       name="price" 
-                                       class="form-control" 
-                                       step="0.01" 
-                                       min="0" 
-                                       required>
+                                <label class="form-label">Imagem do Produto</label>
+                                <div class="image-upload-container text-center" onclick="document.getElementById('editImageInput').click()">
+                                    <img id="editImagePreview" 
+                                         class="img-thumbnail mb-2" 
+                                         style="height: 150px; width: 150px; object-fit: cover;">
+                                    <div>
+                                        <i class="bi bi-camera-fill fs-4 text-muted d-block mb-2"></i>
+                                        <small class="text-muted">Clique para alterar a imagem</small>
+                                    </div>
+                                </div>
+                                <input type="file" 
+                                       id="editImageInput" 
+                                       name="image" 
+                                       class="d-none" 
+                                       accept="image/*">
                             </div>
-                        </div>
-                        <div class="col-md-6">
+                            
                             <div class="mb-3">
-                                <label class="form-label">Estoque *</label>
-                                <input type="number" 
-                                       id="editProductStock" 
-                                       name="stock" 
+                                <label class="form-label">Nome do Produto *</label>
+                                <input type="text" 
+                                       id="editProductName" 
+                                       name="name" 
                                        class="form-control" 
-                                       min="0" 
                                        required>
                             </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Marca *</label>
+                                <select id="editProductBrand" name="brand" class="form-select" required>
+                                    <option value="">Selecione uma marca</option>
+                                    <% brands.forEach(brand => { %>
+                                        <option value="<%= brand.id %>"><%= brand.name %></option>
+                                    <% }) %>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Categoria</label>
+                                <input type="text" 
+                                       id="editProductCategory" 
+                                       name="category" 
+                                       class="form-control" 
+                                       list="editCategoryList">
+                                <datalist id="editCategoryList">
+                                    <% categories.forEach(category => { %>
+                                        <option value="<%= category.category %>">
+                                    <% }) %>
+                                </datalist>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Preço (R$) *</label>
+                                        <input type="number" 
+                                               id="editProductPrice" 
+                                               name="price" 
+                                               class="form-control" 
+                                               step="0.01" 
+                                               min="0" 
+                                               required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Estoque *</label>
+                                        <input type="number" 
+                                               id="editProductStock" 
+                                               name="stock" 
+                                               class="form-control" 
+                                               min="0" 
+                                               required>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Margem de Lucro (%)</label>
-                        <input type="number" 
-                               id="editProductProfit" 
-                               name="profit_percentual" 
-                               class="form-control" 
-                               step="0.01" 
-                               min="0">
+                        
+                        <!-- Right Column - Profit Calculator -->
+                        <div class="col-md-6">
+                            <div class="card bg-light h-100">
+                                <div class="card-header bg-success text-white">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-calculator me-2"></i>Calculadora de Lucro
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Valor de Compra (R$)</label>
+                                        <input type="number" 
+                                               id="editCostPrice" 
+                                               class="form-control profit-calculator" 
+                                               step="0.01" 
+                                               min="0"
+                                               placeholder="0.00">
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Valor de Venda (R$)</label>
+                                        <input type="number" 
+                                               id="editSellPrice" 
+                                               class="form-control profit-calculator" 
+                                               step="0.01" 
+                                               min="0"
+                                               placeholder="0.00">
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <div class="alert alert-info mb-3">
+                                                <div class="d-flex justify-content-between">
+                                                    <span><strong>Lucro:</strong></span>
+                                                    <span id="editProfitAmount" class="fw-bold">R$ 0,00</span>
+                                                </div>
+                                                <div class="d-flex justify-content-between">
+                                                    <span><strong>Percentual:</strong></span>
+                                                    <span id="editProfitPercent" class="fw-bold text-success">0%</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Ou Digite o Percentual de Lucro Diretamente (%)</label>
+                                        <input type="number" 
+                                               id="editProductProfit" 
+                                               name="profit_percentual" 
+                                               class="form-control" 
+                                               step="0.01" 
+                                               min="0"
+                                               placeholder="0.00">
+                                        <small class="text-muted">Este valor será salvo no produto</small>
+                                    </div>
+                                    
+                                    <button type="button" class="btn btn-outline-success btn-sm w-100" onclick="copyCalculatedProfit('edit')">
+                                        <i class="bi bi-arrow-down me-2"></i>Usar Percentual Calculado
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -476,7 +600,7 @@
 
 <!-- Campaign Modal -->
 <div class="modal fade" id="newCampaignModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-warning text-dark">
                 <h5 class="modal-title">
@@ -486,39 +610,102 @@
             </div>
             <form action="/campanhas" method="POST">
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Produto *</label>
-                        <select name="product_id" class="form-select" required>
-                            <option value="">Selecione um produto</option>
-                            <% products.forEach(product => { %>
-                                <option value="<%= product.id %>"><%= product.name %> - <%= product.brand_name %></option>
-                            <% }) %>
-                        </select>
-                    </div>
-                    
                     <div class="row">
+                        <!-- Left Column -->
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">Data Início *</label>
-                                <input type="date" name="start_date" class="form-control" required>
+                                <label class="form-label">Produto *</label>
+                                <select name="product_id" class="form-select" required>
+                                    <option value="">Selecione um produto</option>
+                                    <% products.forEach(product => { %>
+                                        <option value="<%= product.id %>"><%= product.name %> - <%= product.brand_name %></option>
+                                    <% }) %>
+                                </select>
                             </div>
-                        </div>
-                        <div class="col-md-6">
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Data Início *</label>
+                                        <input type="date" name="start_date" class="form-control" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Data Fim *</label>
+                                        <input type="date" name="end_date" class="form-control" required>
+                                    </div>
+                                </div>
+                            </div>
+                            
                             <div class="mb-3">
-                                <label class="form-label">Data Fim *</label>
-                                <input type="date" name="end_date" class="form-control" required>
+                                <label class="form-label">Preço Promocional (R$) *</label>
+                                <input type="number" name="promo_price" class="form-control" step="0.01" min="0" required>
                             </div>
                         </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Preço Promocional (R$) *</label>
-                        <input type="number" name="promo_price" class="form-control" step="0.01" min="0" required>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Margem de Lucro (%)</label>
-                        <input type="number" name="profit_percentual" class="form-control" step="0.01" min="0">
+                        
+                        <!-- Right Column - Profit Calculator -->
+                        <div class="col-md-6">
+                            <div class="card bg-light h-100">
+                                <div class="card-header bg-success text-white">
+                                    <h6 class="mb-0">
+                                        <i class="bi bi-calculator me-2"></i>Calculadora de Lucro
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Valor de Compra (R$)</label>
+                                        <input type="number" 
+                                               id="campaignCostPrice" 
+                                               class="form-control profit-calculator" 
+                                               step="0.01" 
+                                               min="0"
+                                               placeholder="0.00">
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Valor de Venda Promocional (R$)</label>
+                                        <input type="number" 
+                                               id="campaignSellPrice" 
+                                               class="form-control profit-calculator" 
+                                               step="0.01" 
+                                               min="0"
+                                               placeholder="0.00">
+                                    </div>
+                                    
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <div class="alert alert-info mb-3">
+                                                <div class="d-flex justify-content-between">
+                                                    <span><strong>Lucro:</strong></span>
+                                                    <span id="campaignProfitAmount" class="fw-bold">R$ 0,00</span>
+                                                </div>
+                                                <div class="d-flex justify-content-between">
+                                                    <span><strong>Percentual:</strong></span>
+                                                    <span id="campaignProfitPercent" class="fw-bold text-success">0%</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Ou Digite o Percentual de Lucro Diretamente (%)</label>
+                                        <input type="number" 
+                                               name="profit_percentual" 
+                                               id="campaignProfitPercentInput"
+                                               class="form-control" 
+                                               step="0.01" 
+                                               min="0"
+                                               placeholder="0.00">
+                                        <small class="text-muted">Este valor será salvo na campanha</small>
+                                    </div>
+                                    
+                                    <button type="button" class="btn btn-outline-success btn-sm w-100" onclick="copyCalculatedProfit('campaign')">
+                                        <i class="bi bi-arrow-down me-2"></i>Usar Percentual Calculado
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -528,6 +715,131 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editCampaignModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-pencil-square me-2"></i>Editar Campanha
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editCampaignForm">
+                <input type="hidden" id="editCampaignId" name="id">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Produto *</label>
+                                <select id="editCampaignProduct" name="product_id" class="form-select" required>
+                                    <option value="">Selecione um produto</option>
+                                    <% products.forEach(product => { %>
+                                        <option value="<%= product.id %>"><%= product.name %> - <%= product.brand_name %></option>
+                                    <% }) %>
+                                </select>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Data Início *</label>
+                                        <input type="date" id="editCampaignStartDate" name="start_date" class="form-control" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Data Fim *</label>
+                                        <input type="date" id="editCampaignEndDate" name="end_date" class="form-control" required>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Preço Promocional (R$) *</label>
+                                <input type="number" id="editCampaignPromoPrice" name="promo_price" class="form-control" step="0.01" min="0" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Percentual de Lucro (%)</label>
+                                <input type="number" id="editCampaignProfit" name="profit_percentual" class="form-control" step="0.01" min="0">
+                                <small class="text-muted">Este percentual é usado para calcular lucros durante a campanha</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="alert alert-info">
+                                <h6><i class="bi bi-info-circle me-2"></i>Informações</h6>
+                                <ul>
+                                    <li>Editar uma campanha atualiza os preços imediatamente</li>
+                                    <li>O período da campanha deve ser uma data futura ou atual</li>
+                                    <li>O preço promocional deve ser menor que o preço original</li>
+                                    <li>Para campanhas já em andamento, considere o impacto nas vendas</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle me-2"></i>Atualizar Campanha
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="manageCampaignsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-list-check me-2"></i>Gerenciar Campanhas
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="campaignsList" class="list-group">
+                    <!-- Campaigns will be loaded here -->
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Carregando campanhas...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newCampaignModal">
+                    <i class="bi bi-plus-circle me-2"></i>Nova Campanha
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmationModalLabel">Confirmar Ação</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-4">
+                    <i class="bi bi-exclamation-triangle text-warning" style="font-size: 3rem;"></i>
+                </div>
+                <p id="confirmationMessage" class="text-center fs-5">Tem certeza que deseja realizar esta ação?</p>
+                <p id="confirmationDetails" class="text-center text-muted small"></p>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger px-4" id="confirmActionBtn">Confirmar</button>
+            </div>
         </div>
     </div>
 </div>

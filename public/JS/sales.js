@@ -11,6 +11,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let filterOptions = { clients: [], products: [], paymentMethods: [] };
     let totalSales = 0;
     let appliedFilters = {};
+    let totalPages = 1;
+    let currentPagination = {
+        currentPage: 1,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPreviousPage: false
+    };
 
     // ========== CONSTANTS ==========
     const CONFIG = {
@@ -834,7 +841,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (modalElement) modalElement.hide();
                 
                 cart.clear();
-                await loadSalesData();
+                await refreshAnalytics();
+                await refreshSales();
+                setTimeout(() => {
+                    // Check if function exists before calling
+                    if (typeof updateMonthlyProfit === 'function') {
+                        updateMonthlyProfit();
+                    } else {
+                        console.error("updateMonthlyProfit function not found");
+                    }
+                }, 1000);
             }
         } catch (error) {
             console.error('Sale submission error:', error);
@@ -969,18 +985,22 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // ========== BULK ACTIONS ==========
-    const updateBulkActionsVisibility = () => {
+    function updateBulkActionsVisibility() {
+        // This code updates or adds to the existing updateBulkActionsVisibility function
         const selectedCheckboxes = document.querySelectorAll('.sale-checkbox:checked');
         const bulkActionsPanel = document.getElementById('bulkActionsPanel');
         const selectedCount = document.getElementById('selectedCount');
+        const bulkDeleteBtn = document.querySelector('button[onclick="bulkDelete()"]');
         
         if (selectedCheckboxes.length > 0) {
             if (bulkActionsPanel) bulkActionsPanel.classList.remove('d-none');
             if (selectedCount) selectedCount.textContent = selectedCheckboxes.length;
+            if (bulkDeleteBtn) bulkDeleteBtn.removeAttribute('disabled');
         } else {
             if (bulkActionsPanel) bulkActionsPanel.classList.add('d-none');
+            if (bulkDeleteBtn) bulkDeleteBtn.setAttribute('disabled', 'disabled');
         }
-    };
+    }
 
     const bulkMarkPaid = async () => {
         const selectedCheckboxes = document.querySelectorAll('.sale-checkbox:checked');
@@ -1020,6 +1040,165 @@ document.addEventListener('DOMContentLoaded', () => {
             hideLoading();
         }
     };
+
+    window.bulkDelete = async () => {
+        const selectedCheckboxes = document.querySelectorAll('.sale-checkbox:checked');
+        const saleIds = Array.from(selectedCheckboxes).map(cb => parseInt(cb.value));
+        
+        if (saleIds.length === 0) {
+            showNotification('Selecione pelo menos uma venda para excluir', 'warning');
+            return;
+        }
+        
+        const confirmModal = new bootstrap.Modal(document.getElementById('confirmationModal') || createConfirmationModal());
+        
+        // Update modal content
+        document.getElementById('confirmModalTitle').textContent = 'Confirmar Exclusão em Massa';
+        document.getElementById('confirmModalBody').innerHTML = `
+            <div class="text-center mb-4">
+                <i class="bi bi-exclamation-triangle text-danger" style="font-size: 3rem;"></i>
+            </div>
+            <p class="mb-1">Você está prestes a excluir <strong>${saleIds.length}</strong> venda${saleIds.length > 1 ? 's' : ''}.</p>
+            <p class="text-danger mb-3">Esta ação não pode ser desfeita!</p>
+            <div class="alert alert-warning">
+                <small>
+                    <i class="bi bi-info-circle me-1"></i>
+                    Esta ação irá restaurar o estoque dos produtos vendidos e ajustar os débitos dos clientes.
+                </small>
+            </div>
+        `;
+        
+        // Set up confirmation button
+        const confirmBtn = document.getElementById('confirmModalBtn');
+        confirmBtn.textContent = 'Excluir Vendas';
+        confirmBtn.className = 'btn btn-danger';
+        confirmBtn.onclick = async () => {
+            confirmModal.hide();
+            await executeBulkDelete(saleIds);
+        };
+        
+        confirmModal.show();
+    };
+
+    // Function to create confirmation modal if it doesn't exist
+    function createConfirmationModal() {
+        const modalHtml = `
+            <div class="modal fade" id="confirmationModal" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="confirmModalTitle">Confirmar Ação</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body" id="confirmModalBody">
+                            <!-- Content will be set dynamically -->
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-danger" id="confirmModalBtn">Confirmar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        return new bootstrap.Modal(document.getElementById('confirmationModal'));
+    }
+
+    // Function to execute the bulk delete operation
+    async function executeBulkDelete(saleIds) {
+        const progress = showProgressBar('Excluindo vendas...');
+        
+        try {
+            progress.update(10, 'Enviando solicitação...');
+            
+            const response = await fetch('/api/vendas/bulk-delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ saleIds })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Erro ao excluir vendas');
+            }
+            
+            progress.update(50, 'Processando resposta...');
+            const result = await response.json();
+            
+            progress.update(75, 'Atualizando interface...');
+            
+            // Clear checkboxes
+            document.querySelectorAll('.sale-checkbox').forEach(cb => cb.checked = false);
+            document.getElementById('selectAllSales').checked = false;
+            
+            // Hide bulk actions
+            updateBulkActionsVisibility();
+            
+            progress.update(90, 'Recarregando dados...');
+            
+            // Refresh sales data
+            await loadSalesData();
+            await refreshAnalytics();
+            
+            progress.update(100, 'Concluído!');
+            
+            // Show success notification
+            showNotification(result.message, 'success');
+            
+            // Update monthly profit with delay
+            setTimeout(() => {
+                if (typeof updateMonthlyProfit === 'function') {
+                    updateMonthlyProfit();
+                }
+            }, 1500);
+            
+        } catch (error) {
+            console.error('Error executing bulk delete:', error);
+            showNotification(`Erro ao excluir vendas: ${error.message}`, 'danger');
+        } finally {
+            setTimeout(() => {
+                progress.finish();
+            }, 500);
+        }
+    }
+
+    // Add a progress indicator for bulk operations
+    function showProgressBar(message = 'Processando...') {
+        hideLoading(); // Remove any existing loaders
+        
+        const progressHtml = `
+            <div id="progressOverlay" class="overlay-loading">
+                <div class="card" style="width: 300px;">
+                    <div class="card-body text-center">
+                        <h5 class="card-title mb-3">${message}</h5>
+                        <div class="progress mb-3">
+                            <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                style="width: 0%"></div>
+                        </div>
+                        <div id="progressText">Iniciando...</div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.insertAdjacentHTML('beforeend', progressHtml);
+        
+        return {
+            update: (percent, text) => {
+                const bar = document.getElementById('progressBar');
+                const textEl = document.getElementById('progressText');
+                if (bar) bar.style.width = `${percent}%`;
+                if (textEl) textEl.textContent = text;
+            },
+            finish: () => {
+                document.getElementById('progressOverlay')?.remove();
+            }
+        };
+    }
 
     // ========== SALE OPERATIONS ==========
     const viewSale = async (saleId) => {
@@ -1114,7 +1293,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const modal = bootstrap.Modal.getInstance(document.getElementById('viewSaleModal'));
                 if (modal) modal.hide();
                 
-                await loadSalesData();
+                await refreshSales();
+
+                console.log('Updating monthly profit after paying installment');
+                if (typeof scheduleUpdateMonthlyProfit === 'function') {
+                    scheduleUpdateMonthlyProfit(1000); // Delay of 1 second
+                } else if (typeof updateMonthlyProfit === 'function') {
+                    setTimeout(updateMonthlyProfit, 1000);
+                }
             }
         } catch (error) {
             console.error('Error marking installment as paid:', error);
@@ -1164,6 +1350,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (result) {
                 showNotification('Venda excluída com sucesso', 'success');
                 await loadSalesData();
+                
+                // Important: Update the monthly profit after deletion
+                console.log('Updating monthly profit after sale deletion');
+                if (typeof scheduleUpdateMonthlyProfit === 'function') {
+                    scheduleUpdateMonthlyProfit(1000); // Delay of 1 second
+                } else if (typeof updateMonthlyProfit === 'function') {
+                    setTimeout(updateMonthlyProfit, 1000);
+                }
             }
         } catch (error) {
             console.error('Failed to delete sale:', error);
@@ -1580,6 +1774,43 @@ document.addEventListener('DOMContentLoaded', () => {
             showNotification('Erro ao carregar calculadora de comissões', 'danger');
         }
     };
+
+    function updateMonthlyProfit() {
+        console.log("⚙️ Updating monthly profit...");
+        
+        // Add timestamp to prevent caching
+        const timestamp = new Date().getTime();
+        
+        fetch(`/api/monthly-profit?t=${timestamp}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch updated monthly profit');
+                }
+                console.log("✅ Monthly profit data received");
+                return response.json();
+            })
+            .then(data => {
+                console.log("💰 New profit value:", data.formattedProfit);
+                
+                const profitDisplay = document.getElementById('monthlyProfitValue');
+                if (profitDisplay) {
+                    profitDisplay.textContent = data.formattedProfit;
+                    
+                    // Add animation effect to highlight the change
+                    profitDisplay.classList.add('profit-updated');
+                    setTimeout(() => {
+                        profitDisplay.classList.remove('profit-updated');
+                    }, 2000);
+                    
+                    console.log("✨ Profit display updated successfully!");
+                } else {
+                    console.error("❌ Monthly profit element not found in DOM");
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error updating monthly profit:', error);
+            });
+        }
 
     window.calculateCommissions = async () => {
         const startDate = document.getElementById('commissionStartDate').value;
@@ -2115,6 +2346,71 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
+    const originalXHROpen = window.XMLHttpRequest.prototype.open;
+
+    // Override XMLHttpRequest to catch installment payment requests
+    window.XMLHttpRequest.prototype.open = function() {
+        const method = arguments[0];
+        const url = arguments[1];
+        
+        // Check if this is an installment payment request
+        if (method === 'PATCH' && url.includes('/api/installments') && url.includes('/pay')) {
+            this.addEventListener('load', function() {
+                if (this.status >= 200 && this.status < 300) {
+                    console.log('✅ Installment payment successful - updating profit display');
+                    refreshProfitAfterInstallmentPayment();
+                }
+            });
+        }
+        
+        return originalXHROpen.apply(this, arguments);
+    };
+
+    // Update profit after installment payment
+    function refreshProfitAfterInstallmentPayment() {
+        console.log('💰 Refreshing profit after installment payment...');
+        
+        // Add a delay to ensure database transaction is complete
+        setTimeout(() => {
+            fetch(`/api/monthly-profit?refresh=${Date.now()}`, {
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('📊 New profit data received:', data);
+                
+                const profitDisplay = document.getElementById('monthlyProfitValue');
+                if (profitDisplay) {
+                    // Update profit display
+                    profitDisplay.textContent = data.formattedProfit;
+                    
+                    // Add highlight effect
+                    profitDisplay.style.transition = 'all 0.3s ease-out';
+                    profitDisplay.style.color = '#4caf50';
+                    profitDisplay.style.transform = 'scale(1.1)';
+                    profitDisplay.style.textShadow = '0 0 10px rgba(76, 175, 80, 0.5)';
+                    
+                    setTimeout(() => {
+                        profitDisplay.style.color = '';
+                        profitDisplay.style.transform = '';
+                        profitDisplay.style.textShadow = '';
+                    }, 2000);
+                    
+                    console.log('✨ Profit display updated after installment payment!');
+                } else {
+                    console.error('❌ Could not find profit display element');
+                }
+            })
+            .catch(err => {
+                console.error('❌ Error updating profit after installment payment:', err);
+            });
+        }, 500);
+    }
+
     // ========== GLOBAL FUNCTIONS ==========
     window.cart = cart;
     window.payments = payments;
@@ -2124,6 +2420,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.duplicateSale = duplicateSale;
     window.deleteSale = deleteSale;
     window.bulkMarkPaid = bulkMarkPaid;
+    window.goToPage = goToPage;
+    window.updateMonthlyProfit = updateMonthlyProfit;
     window.dismissNotification = () => {
         const notificationBar = document.querySelector('.notification-bar');
         if (notificationBar) notificationBar.style.display = 'none';
@@ -2137,52 +2435,59 @@ document.addEventListener('DOMContentLoaded', () => {
         showNotification('Dados atualizados', 'success', 2000);
     };
 
-        const updateSalesStats = () => {
+    const updateSalesStats = () => {
         const statsContainer = document.getElementById('salesStatsContainer');
         if (!statsContainer) return;
 
-        const totalRevenue = salesData.reduce((sum, sale) => sum + parseFloat(sale.total), 0);
-        const paidSales = salesData.filter(sale => sale.payment_status === 'Pago').length;
-        const pendingSales = salesData.filter(sale => sale.payment_status === 'Pendente').length;
-        const avgTicket = salesData.length > 0 ? totalRevenue / salesData.length : 0;
-
-        statsContainer.innerHTML = `
-            <div class="row g-3 mb-4">
-                <div class="col-md-3">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title text-primary">${salesData.length}</h5>
-                            <p class="card-text">Total de Vendas</p>
+        // Make an API call to get complete sales statistics instead of using local salesData
+        api.get('/api/sales/statistics')
+            .then(stats => {
+                if (!stats) return;
+                
+                statsContainer.innerHTML = `
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <h5 class="card-title text-primary">${stats.totalSales}</h5>
+                                    <p class="card-text">Total de Vendas</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <h5 class="card-title text-success">${formatCurrency(stats.totalRevenue)}</h5>
+                                    <p class="card-text">Receita Total</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <h5 class="card-title text-success">${stats.paidSales}</h5>
+                                    <p class="card-text">Vendas Pagas</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card text-center">
+                                <div class="card-body">
+                                    <h5 class="card-title text-warning">${stats.pendingSales}</h5>
+                                    <p class="card-text">Vendas Pendentes</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title text-success">${formatCurrency(totalRevenue)}</h5>
-                            <p class="card-text">Receita Total</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title text-success">${paidSales}</h5>
-                            <p class="card-text">Vendas Pagas</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card text-center">
-                        <div class="card-body">
-                            <h5 class="card-title text-warning">${pendingSales}</h5>
-                            <p class="card-text">Vendas Pendentes</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
+                `;
+            })
+            .catch(error => {
+                console.error('Failed to load sales statistics:', error);
+                statsContainer.innerHTML = '<p class="text-center text-muted">Erro ao carregar estatísticas</p>';
+            });
     };
+
+
 
     // ========== MAIN DATA LOADING ==========
     const loadSalesData = async () => {
@@ -2201,19 +2506,142 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response) {
                 if (response.sales) {
                     salesData = response.sales;
+                    totalPages = response.pagination?.totalPages || 1;
                     totalSales = response.pagination?.totalSales || response.sales.length;
+                    
+                    // Store pagination info
+                    currentPagination = {
+                        currentPage: response.pagination?.currentPage || 1,
+                        totalPages: response.pagination?.totalPages || 1,
+                        hasNextPage: response.pagination?.hasNextPage || false,
+                        hasPreviousPage: response.pagination?.hasPreviousPage || false
+                    };
                 } else {
                     salesData = response;
                     totalSales = response.length;
+                    totalPages = 1;
+                    currentPagination = {
+                        currentPage: 1,
+                        totalPages: 1,
+                        hasNextPage: false,
+                        hasPreviousPage: false
+                    };
                 }
+                
                 salesTable.update();
-                updateSalesStats();
+                updateSalesStats(); // This now makes a separate API call
+                renderPagination();
             }
         } catch (error) {
             console.error('Failed to load sales data:', error);
             showNotification('Erro ao carregar vendas', 'danger');
         }
     };
+
+    window.refreshAnalytics = () => {
+        loadAnalyticsData();
+        updateSalesStats(); // Make sure we update the sales stats too
+        showNotification('Analytics atualizados', 'success', 2000);
+    };
+
+    function renderPagination() {
+        const paginationElement = document.getElementById('salesPagination');
+        const paginationStats = document.getElementById('paginationStats');
+        
+        if (!paginationElement) return;
+        
+        // Clear existing pagination
+        paginationElement.innerHTML = '';
+        
+        // Update stats text
+        if (paginationStats) {
+            const start = ((currentPage - 1) * CONFIG.PAGINATION_SIZE) + 1;
+            const end = Math.min(currentPage * CONFIG.PAGINATION_SIZE, totalSales);
+            paginationStats.textContent = `Mostrando ${start}-${end} de ${totalSales} vendas`;
+        }
+        
+        // If we only have one page, don't show pagination
+        if (totalPages <= 1) return;
+        
+        // Add previous button
+        const prevLi = document.createElement('li');
+        prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+        
+        const prevLink = document.createElement('a');
+        prevLink.className = 'page-link';
+        prevLink.href = '#';
+        prevLink.setAttribute('aria-label', 'Previous');
+        prevLink.innerHTML = '<span aria-hidden="true">&laquo;</span>';
+        
+        if (currentPage > 1) {
+            prevLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                goToPage(currentPage - 1);
+            });
+        }
+        
+        prevLi.appendChild(prevLink);
+        paginationElement.appendChild(prevLi);
+        
+        // Determine which page numbers to show
+        let startPage = Math.max(1, currentPage - 2);
+        let endPage = Math.min(totalPages, startPage + 4);
+        
+        // Adjust if we're near the end
+        if (endPage - startPage < 4) {
+            startPage = Math.max(1, endPage - 4);
+        }
+        
+        // Add page number buttons
+        for (let i = startPage; i <= endPage; i++) {
+            const pageLi = document.createElement('li');
+            pageLi.className = `page-item ${i === currentPage ? 'active' : ''}`;
+            
+            const pageLink = document.createElement('a');
+            pageLink.className = 'page-link';
+            pageLink.href = '#';
+            pageLink.textContent = i;
+            pageLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                goToPage(i);
+            });
+            
+            pageLi.appendChild(pageLink);
+            paginationElement.appendChild(pageLi);
+        }
+        
+        // Add next button
+        const nextLi = document.createElement('li');
+        nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+        
+        const nextLink = document.createElement('a');
+        nextLink.className = 'page-link';
+        nextLink.href = '#';
+        nextLink.setAttribute('aria-label', 'Next');
+        nextLink.innerHTML = '<span aria-hidden="true">&raquo;</span>';
+        
+        if (currentPage < totalPages) {
+            nextLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                goToPage(currentPage + 1);
+            });
+        }
+        
+        nextLi.appendChild(nextLink);
+        paginationElement.appendChild(nextLi);
+    }
+
+    function goToPage(page) {
+        if (page !== currentPage) {
+            currentPage = page;
+            loadSalesData();
+            // Scroll to top of sales table
+            const salesTable = document.getElementById('salesTable');
+            if (salesTable) {
+                salesTable.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+    }
 
     // ========== STYLES ==========
     const injectStyles = () => {

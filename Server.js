@@ -90,6 +90,47 @@ const validateRequired = (fields, data) => {
     }
 };
 
+app.get('/api/monthly-profit', requireAuth, async (req, res) => {
+    try {
+        const startTime = Date.now();
+        console.log(`Starting monthly profit calculation for user ${req.session.userId}`);
+        
+        // Add strong cache-control headers
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        
+        // Force database to refresh transaction state
+        await pool.query('DISCARD ALL');
+        
+        // Analyze tables for fresh statistics
+        await pool.query('ANALYZE installments');
+        await pool.query('ANALYZE sales');
+        await pool.query('ANALYZE sale_payments');
+        
+        // Calculate with fresh data
+        const monthlyProfit = await calculateMonthlyProfit(req.session.userId);
+        
+        const elapsedTime = Date.now() - startTime;
+        console.log(`Monthly profit calculation completed in ${elapsedTime}ms: ${monthlyProfit}`);
+        
+        // Return formatted and raw profit values
+        res.json({ 
+            profit: monthlyProfit,
+            formattedProfit: new Intl.NumberFormat('pt-BR', { 
+                style: 'currency', 
+                currency: 'BRL' 
+            }).format(monthlyProfit),
+            timestamp: new Date().toISOString(),
+            calculationTime: elapsedTime,
+            cache: false
+        });
+    } catch (error) {
+        console.error('Error fetching monthly profit:', error);
+        res.status(500).json({ error: 'Failed to calculate monthly profit' });
+    }
+});
+
 // ========== PROFIT CALCULATION (OPTIMIZED) ==========
 async function calculateMonthlyProfit(userId) {
     try {
@@ -97,28 +138,66 @@ async function calculateMonthlyProfit(userId) {
         const start = new Date(now.getFullYear(), now.getMonth(), 1);
         const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
+        // Force a refresh of any statistics that might be cached
+        await pool.query('ANALYZE installments');
+
         const sql = `
             WITH installment_profits AS (
                 SELECT 
                     i.id as installment_id,
                     i.value as installment_value,
                     i.paid,
+                    i.paid_date,
                     i.due_date,
                     s.id as sale_id,
                     s.total as sale_total,
+                    s.sale_date,
+                    sp.quantity,
+                    sp.unit_price,
+                    p.id as product_id,
+                    p.profit_percent as standard_profit_percent,
+                    c.id as campaign_id,
+                    c.promo_price,
+                    c.campaign_profit_percent,
+                    c.start_date as campaign_start,
+                    c.end_date as campaign_end,
+                    -- Determine effective profit percentage based on campaign status at sale time
+                    CASE 
+                        WHEN c.id IS NOT NULL 
+                            AND s.sale_date >= c.start_date 
+                            AND s.sale_date <= c.end_date 
+                        THEN c.campaign_profit_percent
+                        ELSE p.profit_percent
+                    END as effective_profit_percent,
                     sp.quantity * sp.unit_price as product_total,
-                    (sp.quantity * sp.unit_price * (p.profit_percent / 100.0)) as product_profit
+                    -- Calculate profit using the effective profit percentage
+                    (sp.quantity * sp.unit_price * (
+                        CASE 
+                            WHEN c.id IS NOT NULL 
+                                AND s.sale_date >= c.start_date 
+                                AND s.sale_date <= c.end_date 
+                            THEN c.campaign_profit_percent
+                            ELSE p.profit_percent
+                        END / 100.0
+                    )) as product_profit
                 FROM installments i
                 JOIN sale_payments spm ON i.sale_payments_id = spm.id
                 JOIN sales s ON spm.sale_id = s.id
                 JOIN sale_products sp ON s.id = sp.sale_id
                 JOIN products p ON sp.product_id = p.id
+                -- Left join with campaigns to check if there was an active campaign when the sale was made
+                LEFT JOIN campaigns c ON p.id = c.product_id
+                    AND s.sale_date >= c.start_date
+                    AND s.sale_date <= c.end_date
+                    AND c.user_id = $1
                 WHERE s.user_id = $1 
                     AND i.user_id = $1 
                     AND sp.user_id = $1 
                     AND p.user_id = $1
-                    AND i.due_date >= $2 
-                    AND i.due_date < $3
+                    AND (
+                        (i.due_date >= $2 AND i.due_date < $3) OR
+                        (i.paid = true AND i.paid_date >= $2 AND i.paid_date < $3)
+                    )
             ),
             sale_totals AS (
                 SELECT 
@@ -183,24 +262,44 @@ app.get("/login", (req, res) => {
 
 app.post("/login", async (req, res) => {
     try {
-        const { username, password } = req.body;
-        validateRequired(['username', 'password'], req.body);
+        const { login, password } = req.body;
         
+        // Check if login is empty
+        if (!login || !password) {
+            return res.render("login", { 
+                error: "Usuário/email e senha são obrigatórios", 
+                title: "Login" 
+            });
+        }
+        
+        // Query to find user by either username or email
         const { rows } = await pool.query(
-            `SELECT id, password FROM users WHERE username = $1`, 
-            [username]
+            `SELECT id, username, email, password FROM users WHERE username = $1 OR email = $1`, 
+            [login]
         );
         
-        if (rows[0] && await bcrypt.compare(password, rows[0].password)) {
-            req.session.userId = rows[0].id;
+        if (rows.length === 0) {
+            return res.render("login", { 
+                error: "Usuário ou email não encontrado", 
+                title: "Login" 
+            });
+        }
+        
+        const user = rows[0];
+        const passwordValid = await bcrypt.compare(password, user.password);
+        
+        if (passwordValid) {
+            req.session.userId = user.id;
+            req.session.username = user.username;
             return res.redirect("/");
         }
         
         res.render("login", { 
-            error: "Credenciais inválidas", 
+            error: "Senha incorreta", 
             title: "Login" 
         });
     } catch (error) {
+        console.error('Login error:', error);
         handleError(res, error, 'Erro no login');
     }
 });
@@ -468,16 +567,72 @@ app.post("/clientes/:id/debito", requireAuth, async (req, res) => {
 });
 
 app.delete("/clientes/:id", requireAuth, async (req, res) => {
+    const client = await pool.connect();
+    
     try {
-        await pool.query(
-            'DELETE FROM clients WHERE id = $1 AND user_id = $2', 
-            [req.params.id, req.session.userId]
+        await client.query('BEGIN');
+        
+        const clientId = req.params.id;
+        const { deleteReason = 'user_request' } = req.body;
+        
+        // Check if client exists
+        const clientCheck = await client.query(
+            'SELECT id, name, phone FROM clients WHERE id = $1 AND user_id = $2',
+            [clientId, req.session.userId]
         );
-        res.sendStatus(200);
+        
+        if (clientCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Cliente não encontrado' });
+        }
+
+        // Check for sales associated with this client
+        const salesCheck = await client.query(
+            'SELECT COUNT(*) as sales_count FROM sales WHERE client_id = $1 AND user_id = $2',
+            [clientId, req.session.userId]
+        );
+        
+        const salesCount = parseInt(salesCheck.rows[0].sales_count);
+        
+        if (salesCount > 0) {
+            // LGPD-compliant approach: Anonymize the client instead of transferring sales
+            await client.query(`
+                UPDATE clients 
+                SET 
+                    name = 'Cliente Anonimizado',
+                    phone = NULL,
+                    deleted = TRUE
+                WHERE id = $1 AND user_id = $2
+            `, [clientId, req.session.userId]);
+            
+            await client.query('COMMIT');
+            return res.json({ 
+                success: true, 
+                message: `Dados pessoais do cliente foram anonimizados em conformidade com a LGPD. Registros fiscais foram preservados.`,
+                preservedSales: salesCount,
+                anonymized: true
+            });
+        }
+        
+        // If no sales, completely delete the client (LGPD compliant - full removal)
+        await client.query(
+            'DELETE FROM clients WHERE id = $1 AND user_id = $2', 
+            [clientId, req.session.userId]
+        );
+        
+        await client.query('COMMIT');
+        res.json({ 
+            success: true, 
+            message: 'Cliente excluído completamente conforme solicitado (LGPD)'
+        });
+        
     } catch (error) {
+        await client.query('ROLLBACK');
         handleError(res, error, 'Erro ao excluir cliente');
+    } finally {
+        client.release();
     }
 });
+
 
 // ========== PRODUCTS ROUTES ==========
 app.get("/produtos", requireAuth, async (req, res) => {
@@ -698,14 +853,63 @@ app.put('/api/produtos/:id', upload.single('image'), requireAuth, async (req, re
 });
 
 app.delete('/produtos/:id', requireAuth, async (req, res) => {
+    const client = await pool.connect();
+    
     try {
-        await pool.query(
-            "DELETE FROM products WHERE id = $1 AND user_id = $2", 
-            [req.params.id, req.session.userId]
+        await client.query('BEGIN');
+        
+        const productId = req.params.id;
+        
+        // Check if product exists
+        const productCheck = await client.query(
+            'SELECT id, name FROM products WHERE id = $1 AND user_id = $2',
+            [productId, req.session.userId]
         );
-        res.sendStatus(200);
+        
+        if (productCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Produto não encontrado' });
+        }
+
+        // Check for sales associated with this product
+        const salesCheck = await client.query(
+            'SELECT COUNT(*) as sales_count FROM sale_products WHERE product_id = $1 AND user_id = $2',
+            [productId, req.session.userId]
+        );
+        
+        const salesCount = parseInt(salesCheck.rows[0].sales_count);
+        
+        if (salesCount > 0) {
+            // Create a "deleted product" record in the system if it doesn't exist
+            const productName = productCheck.rows[0].name;
+            
+            // Update product instead of deleting
+            await client.query(
+                "UPDATE products SET name = $1, deleted = TRUE WHERE id = $2 AND user_id = $3",
+                [`Produto Removido (${productName})`, productId, req.session.userId]
+            );
+            
+            await client.query('COMMIT');
+            return res.json({ 
+                success: true, 
+                message: `Produto removido do catálogo. ${salesCount} registros de venda foram preservados.`,
+                preservedSales: salesCount 
+            });
+        }
+        
+        // If no sales, simply delete the product
+        await client.query(
+            'DELETE FROM products WHERE id = $1 AND user_id = $2', 
+            [productId, req.session.userId]
+        );
+        
+        await client.query('COMMIT');
+        res.json({ success: true, message: 'Produto excluído com sucesso' });
+        
     } catch (error) {
+        await client.query('ROLLBACK');
         handleError(res, error, 'Erro ao excluir produto');
+    } finally {
+        client.release();
     }
 });
 
@@ -859,17 +1063,165 @@ app.post('/campanhas', requireAuth, async (req, res) => {
 app.get('/api/campanhas', requireAuth, async (req, res) => {
     try {
         const { rows } = await pool.query(`
-            SELECT c.*, p.name as product_name, b.name as brand_name
+            SELECT c.*, 
+                   p.name as product_name, 
+                   p.price as original_price,
+                   b.name as brand_name
             FROM campaigns c
             JOIN products p ON c.product_id = p.id
             LEFT JOIN brands b ON p.brand = b.id
             WHERE c.end_date >= CURRENT_DATE AND c.user_id = $1
-            ORDER BY c.start_date DESC
+            ORDER BY c.start_date ASC
         `, [req.session.userId]);
         
         res.json(rows);
     } catch (error) {
         handleError(res, error, 'Erro ao buscar campanhas');
+    }
+});
+
+app.get('/api/campanhas/:id', requireAuth, async (req, res) => {
+    try {
+        const { rows } = await pool.query(`
+            SELECT c.*,
+                   p.name as product_name,
+                   p.price as original_price
+            FROM campaigns c
+            JOIN products p ON c.product_id = p.id
+            WHERE c.id = $1 AND c.user_id = $2
+        `, [req.params.id, req.session.userId]);
+        
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Campanha não encontrada' });
+        }
+        
+        res.json(rows[0]);
+    } catch (error) {
+        handleError(res, error, 'Erro ao buscar campanha');
+    }
+});
+
+// Add endpoint to update a campaign
+app.put('/api/campanhas/:id', requireAuth, async (req, res) => {
+    const client = await pool.connect();
+    
+    try {
+        await client.query('BEGIN');
+        
+        const { id } = req.params;
+        const { product_id, start_date, end_date, promo_price, profit_percentual } = req.body;
+        
+        // Validate input
+        validateRequired(['product_id', 'start_date', 'end_date', 'promo_price'], req.body);
+        
+        // Check if campaign exists and belongs to user
+        const campaignCheck = await client.query(
+            'SELECT id FROM campaigns WHERE id = $1 AND user_id = $2',
+            [id, req.session.userId]
+        );
+        
+        if (campaignCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Campanha não encontrada' });
+        }
+        
+        // Get product price for validation
+        const productCheck = await client.query(
+            'SELECT price FROM products WHERE id = $1 AND user_id = $2',
+            [product_id, req.session.userId]
+        );
+        
+        if (productCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Produto não encontrado' });
+        }
+        
+        const price = productCheck.rows[0].price;
+        
+        // Validate dates
+        if (new Date(start_date) >= new Date(end_date)) {
+            return res.status(400).json({ error: 'Data final deve ser após a inicial' });
+        }
+        
+        // Validate price
+        if (parseFloat(promo_price) >= price) {
+            return res.status(400).json({ error: 'Preço promocional deve ser menor que o original' });
+        }
+        
+        // Update campaign
+        await client.query(`
+            UPDATE campaigns 
+            SET product_id = $1, start_date = $2, end_date = $3, 
+                promo_price = $4, campaign_profit_percent = $5
+            WHERE id = $6 AND user_id = $7
+        `, [
+            product_id, 
+            start_date, 
+            end_date, 
+            parseFloat(promo_price),
+            parseFloat(profit_percentual || 0),
+            id,
+            req.session.userId
+        ]);
+        
+        // Update product's current campaign if needed
+        await client.query(`
+            UPDATE products 
+            SET current_campaign_id = $1 
+            WHERE id = $2 AND user_id = $3
+        `, [id, product_id, req.session.userId]);
+        
+        await client.query('COMMIT');
+        
+        res.json({ success: true, message: 'Campanha atualizada com sucesso' });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        handleError(res, error, 'Erro ao atualizar campanha');
+    } finally {
+        client.release();
+    }
+});
+
+// Add endpoint to delete a campaign
+app.delete('/api/campanhas/:id', requireAuth, async (req, res) => {
+    const client = await pool.connect();
+    
+    try {
+        await client.query('BEGIN');
+        
+        const { id } = req.params;
+        
+        // Get the campaign's product_id before deleting
+        const campaignCheck = await client.query(
+            'SELECT product_id FROM campaigns WHERE id = $1 AND user_id = $2',
+            [id, req.session.userId]
+        );
+        
+        if (campaignCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Campanha não encontrada' });
+        }
+        
+        const productId = campaignCheck.rows[0].product_id;
+        
+        // Remove campaign reference from product
+        await client.query(`
+            UPDATE products 
+            SET current_campaign_id = NULL 
+            WHERE id = $1 AND current_campaign_id = $2 AND user_id = $3
+        `, [productId, id, req.session.userId]);
+        
+        // Delete the campaign
+        await client.query(
+            'DELETE FROM campaigns WHERE id = $1 AND user_id = $2',
+            [id, req.session.userId]
+        );
+        
+        await client.query('COMMIT');
+        
+        res.json({ success: true, message: 'Campanha excluída com sucesso' });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        handleError(res, error, 'Erro ao excluir campanha');
+    } finally {
+        client.release();
     }
 });
 
@@ -894,6 +1246,7 @@ app.get("/vendas", requireAuth, async (req, res) => {
     }
 });
 
+// Update the GET /api/vendas endpoint in Server.js to fix pagination response
 app.get('/api/vendas', requireAuth, async (req, res) => {
     try {
         const {
@@ -940,7 +1293,7 @@ app.get('/api/vendas', requireAuth, async (req, res) => {
 
         const whereClause = conditions.join(' AND ');
 
-        // Get total count
+        // Get total count for pagination
         const { rows: countRows } = await pool.query(`
             SELECT COUNT(DISTINCT s.id) as total
             FROM sales s
@@ -950,6 +1303,7 @@ app.get('/api/vendas', requireAuth, async (req, res) => {
         
         const totalSales = parseInt(countRows[0].total);
         const totalPages = Math.ceil(totalSales / parseInt(limit));
+        const currentPageInt = parseInt(page);
 
         // Get sales data with proper payment status calculation
         const salesQuery = `
@@ -1043,16 +1397,22 @@ app.get('/api/vendas', requireAuth, async (req, res) => {
             );
         }
 
+        // Enhanced pagination info
+        const paginationInfo = {
+            currentPage: currentPageInt,
+            totalPages,
+            totalSales,
+            itemsPerPage: parseInt(limit),
+            hasNextPage: currentPageInt < totalPages,
+            hasPreviousPage: currentPageInt > 1,
+            startItem: offset + 1,
+            endItem: Math.min(offset + parseInt(limit), totalSales),
+            limitPerPage: parseInt(limit)
+        };
+
         res.json({
             sales: filteredSales,
-            pagination: {
-                currentPage: parseInt(page),
-                totalPages,
-                totalSales: filteredSales.length,
-                limit: parseInt(limit),
-                hasNextPage: parseInt(page) < totalPages,
-                hasPreviousPage: parseInt(page) > 1
-            }
+            pagination: paginationInfo
         });
     } catch (error) {
         handleError(res, error, 'Erro ao buscar vendas');
@@ -1303,6 +1663,187 @@ app.delete('/api/vendas/:id', requireAuth, async (req, res) => {
     }
 });
 
+// Bulk delete sales endpoint
+app.post('/api/vendas/bulk-delete', requireAuth, async (req, res) => {
+    const { saleIds } = req.body;
+    
+    // Validate input
+    if (!saleIds || !Array.isArray(saleIds) || saleIds.length === 0) {
+        return res.status(400).json({ error: 'Nenhuma venda selecionada para exclusão' });
+    }
+    
+    // For extremely large operations, use a background job approach
+    const BATCH_SIZE = 20; // Process 20 sales at a time to avoid long transactions
+    let successCount = 0;
+    let failedCount = 0;
+    let processedClientIds = new Set();
+    
+    try {
+        // Process in batches for better performance and to avoid long-running transactions
+        for (let i = 0; i < saleIds.length; i += BATCH_SIZE) {
+            const batch = saleIds.slice(i, i + BATCH_SIZE);
+            const batchResult = await processSalesBatch(batch, req.session.userId);
+            
+            successCount += batchResult.successCount;
+            failedCount += batchResult.failedCount;
+            
+            // Track unique client IDs that were affected
+            batchResult.affectedClientIds.forEach(id => processedClientIds.add(id));
+        }
+
+        await scheduleMonthlyProfitRefresh(req.session.userId);
+        
+        return res.json({
+            success: true,
+            message: `${successCount} vendas excluídas com sucesso${failedCount > 0 ? ` (${failedCount} falhas)` : ''}`,
+            deletedCount: successCount,
+            failedCount: failedCount,
+            clientsUpdated: processedClientIds.size
+        });
+    } catch (error) {
+        console.error('Bulk delete sales error:', error);
+        return res.status(500).json({ 
+            error: 'Erro ao excluir vendas em lote', 
+            message: error.message,
+            successCount,
+            failedCount
+        });
+    }
+    async function scheduleMonthlyProfitRefresh(userId) {
+        try {
+            // Force calculation refresh
+            console.log(`Scheduling profit refresh for user ${userId}`);
+            setTimeout(async () => {
+                try {
+                    await calculateMonthlyProfit(userId, true);
+                    console.log(`Profit refreshed for user ${userId}`);
+                } catch (err) {
+                    console.error('Error in scheduled profit refresh:', err);
+                }
+            }, 2000);
+        } catch (error) {
+            console.error('Error scheduling profit refresh:', error);
+        }
+    }
+});
+
+// Helper function to process a batch of sales
+async function processSalesBatch(saleIds, userId) {
+    let successCount = 0;
+    let failedCount = 0;
+    const affectedClientIds = new Set();
+    
+    const client = await pool.connect();
+    
+    try {
+        await client.query('BEGIN');
+        
+        // Step 1: Verify all sales belong to this user
+        const salesQuery = await client.query(`
+            SELECT s.id, s.client_id 
+            FROM sales s 
+            WHERE s.id = ANY($1::int[]) AND s.user_id = $2
+        `, [saleIds, userId]);
+        
+        const validSaleIds = salesQuery.rows.map(row => row.id);
+        
+        // Track which clients need debt updates
+        const clientDebtUpdates = new Map();
+        
+        // Process each valid sale
+        for (const saleId of validSaleIds) {
+            try {
+                // Get sale products for stock restoration
+                const productsQuery = await client.query(`
+                    SELECT product_id, quantity 
+                    FROM sale_products 
+                    WHERE sale_id = $1 AND user_id = $2
+                `, [saleId, userId]);
+                
+                // Restore stock for each product
+                for (const product of productsQuery.rows) {
+                    await client.query(
+                        'UPDATE products SET stock = stock + $1 WHERE id = $2 AND user_id = $3',
+                        [product.quantity, product.product_id, userId]
+                    );
+                }
+                
+                // Get unpaid installments to update client debt
+                const { rows } = await client.query(`
+                    SELECT s.client_id, COALESCE(SUM(i.value), 0) as unpaid_amount
+                    FROM sales s
+                    LEFT JOIN sale_payments sp ON s.id = sp.sale_id
+                    LEFT JOIN installments i ON sp.id = i.sale_payments_id AND i.paid = FALSE
+                    WHERE s.id = $1 AND s.user_id = $2
+                    GROUP BY s.client_id
+                `, [saleId, userId]);
+                
+                if (rows.length > 0 && rows[0].client_id) {
+                    const { client_id, unpaid_amount } = rows[0];
+                    
+                    // Track debt changes by client
+                    const currentDebt = clientDebtUpdates.get(client_id) || 0;
+                    clientDebtUpdates.set(client_id, currentDebt + parseFloat(unpaid_amount || 0));
+                    
+                    affectedClientIds.add(client_id);
+                }
+                
+                // Delete cascade: installments -> sale_payments -> sale_products -> sales
+                await client.query(`
+                    DELETE FROM installments 
+                    WHERE sale_payments_id IN (
+                        SELECT id FROM sale_payments WHERE sale_id = $1 AND user_id = $2
+                    ) AND user_id = $2
+                `, [saleId, userId]);
+                
+                await client.query(
+                    'DELETE FROM sale_payments WHERE sale_id = $1 AND user_id = $2', 
+                    [saleId, userId]
+                );
+                
+                await client.query(
+                    'DELETE FROM sale_products WHERE sale_id = $1 AND user_id = $2', 
+                    [saleId, userId]
+                );
+                
+                await client.query(
+                    'DELETE FROM sales WHERE id = $1 AND user_id = $2', 
+                    [saleId, userId]
+                );
+                
+                successCount++;
+            } catch (error) {
+                console.error(`Error processing sale ${saleId}:`, error);
+                failedCount++;
+            }
+        }
+        
+        // Update client debts
+        for (const [clientId, debtReduction] of clientDebtUpdates.entries()) {
+            if (debtReduction > 0) {
+                await client.query(
+                    'UPDATE clients SET debt = GREATEST(debt - $1, 0) WHERE id = $2 AND user_id = $3',
+                    [debtReduction, clientId, userId]
+                );
+            }
+        }
+        
+        await client.query('COMMIT');
+        
+        return { 
+            successCount, 
+            failedCount, 
+            affectedClientIds: Array.from(affectedClientIds) 
+        };
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Batch processing error:', error);
+        throw error;
+    } finally {
+        client.release();
+    }
+}
+
 // ========== INSTALLMENTS ROUTES ==========
 app.patch('/api/installments/:id/pay', requireAuth, async (req, res) => {
     const client = await pool.connect();
@@ -1310,11 +1851,24 @@ app.patch('/api/installments/:id/pay', requireAuth, async (req, res) => {
     try {
         await client.query('BEGIN');
         
+        // Get installment details with full join data for profit calculation
         const { rows } = await client.query(`
-            SELECT i.value, i.paid, s.client_id
+            SELECT 
+                i.id, i.value, i.paid, i.due_date, 
+                s.client_id, s.id as sale_id, s.sale_date,
+                sp.product_id, sp.quantity, sp.unit_price,
+                p.profit_percent, 
+                c.campaign_profit_percent,
+                c.start_date as campaign_start,
+                c.end_date as campaign_end
             FROM installments i
-            JOIN sale_payments sp ON i.sale_payments_id = sp.id
-            JOIN sales s ON sp.sale_id = s.id
+            JOIN sale_payments spm ON i.sale_payments_id = spm.id
+            JOIN sales s ON spm.sale_id = s.id
+            JOIN sale_products sp ON s.id = sp.sale_id
+            JOIN products p ON sp.product_id = p.id
+            LEFT JOIN campaigns c ON p.id = c.product_id 
+                AND s.sale_date >= c.start_date 
+                AND s.sale_date <= c.end_date
             WHERE i.id = $1 AND i.user_id = $2
         `, [req.params.id, req.session.userId]);
         
@@ -1328,11 +1882,12 @@ app.patch('/api/installments/:id/pay', requireAuth, async (req, res) => {
             return res.status(400).json({ error: 'Parcela já está paga' });
         }
         
-        // Mark as paid
+        // Mark installment as paid with current timestamp
+        const now = new Date();
         await client.query(`
-            UPDATE installments SET paid = true, paid_date = CURRENT_DATE 
+            UPDATE installments SET paid = true, paid_date = $3 
             WHERE id = $1 AND user_id = $2
-        `, [req.params.id, req.session.userId]);
+        `, [req.params.id, req.session.userId, now]);
         
         // Update client debt
         await client.query(`
@@ -1340,9 +1895,28 @@ app.patch('/api/installments/:id/pay', requireAuth, async (req, res) => {
             WHERE id = $2 AND user_id = $3
         `, [value, client_id, req.session.userId]);
         
+        // Commit the transaction
         await client.query('COMMIT');
         
-        res.json({ message: 'Parcela paga com sucesso' });
+        // Return additional data for client-side profit calculation
+        const installmentDetails = {
+            id: req.params.id,
+            value: value,
+            client_id: client_id,
+            paid: true,
+            paid_date: now,
+            sale_details: rows.map(row => ({
+                product_id: row.product_id,
+                quantity: row.quantity,
+                unit_price: row.unit_price,
+                profit_percent: row.campaign_profit_percent || row.profit_percent
+            }))
+        };
+        
+        res.json({ 
+            message: 'Parcela paga com sucesso',
+            installment: installmentDetails
+        });
     } catch (err) {
         await client.query('ROLLBACK');
         handleError(res, err, 'Erro ao marcar parcela como paga');
@@ -1515,6 +2089,71 @@ app.get('/api/notifications', requireAuth, async (req, res) => {
 
 // ========== ANALYTICS ROUTES ==========
 
+app.get('/api/sales/statistics', requireAuth, async (req, res) => {
+    try {
+        const { startDate, endDate, status } = req.query;
+        let filterConditions = ['user_id = $1'];
+        let params = [req.session.userId];
+        let paramIndex = 2;
+        
+        // Add any filters that might be applied
+        if (startDate) {
+            filterConditions.push(`sale_date >= $${paramIndex}`);
+            params.push(startDate);
+            paramIndex++;
+        }
+        
+        if (endDate) {
+            filterConditions.push(`sale_date <= $${paramIndex}`);
+            params.push(endDate);
+            paramIndex++;
+        }
+        
+        const filterClause = filterConditions.length > 0 ? 'WHERE ' + filterConditions.join(' AND ') : '';
+        
+        // Get complete statistics in one query for efficiency
+        const { rows } = await pool.query(`
+            WITH sales_data AS (
+                SELECT 
+                    COUNT(*) as total_sales,
+                    SUM(total) as total_revenue,
+                    COUNT(CASE WHEN NOT EXISTS (
+                        SELECT 1 FROM installments i 
+                        JOIN sale_payments sp ON i.sale_payments_id = sp.id 
+                        WHERE sp.sale_id = s.id AND i.paid = false AND i.user_id = $1
+                    ) THEN 1 END) as paid_sales,
+                    COUNT(CASE WHEN EXISTS (
+                        SELECT 1 FROM installments i 
+                        JOIN sale_payments sp ON i.sale_payments_id = sp.id 
+                        WHERE sp.sale_id = s.id AND i.paid = false AND i.user_id = $1
+                    ) THEN 1 END) as pending_sales
+                FROM sales s
+                ${filterClause}
+            )
+            SELECT * FROM sales_data
+        `, params);
+        
+        if (rows.length === 0) {
+            return res.json({
+                totalSales: 0,
+                totalRevenue: 0,
+                paidSales: 0,
+                pendingSales: 0
+            });
+        }
+        
+        const stats = rows[0];
+        res.json({
+            totalSales: parseInt(stats.total_sales),
+            totalRevenue: parseFloat(stats.total_revenue || 0),
+            paidSales: parseInt(stats.paid_sales || 0),
+            pendingSales: parseInt(stats.pending_sales || 0)
+        });
+    } catch (error) {
+        handleError(res, error, 'Erro ao buscar estatísticas de vendas');
+    }
+});
+
 app.get('/api/analytics/sales-today', requireAuth, async (req, res) => {
     try {
         const today = new Date();
@@ -1648,9 +2287,19 @@ app.get('/api/analytics/top-products', requireAuth, async (req, res) => {
 
 app.get('/api/analytics/revenue-trend', requireAuth, async (req, res) => {
     try {
-        const { days = 7 } = req.query;
+        const { days = 7, filter = '' } = req.query;
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - parseInt(days));
+
+        // Note: The filter parameter should be applied to filter data,
+        // but we don't apply pagination limits here
+        let filterCondition = 'user_id = $1 AND sale_date >= $2 AND sale_date <= CURRENT_DATE';
+        let params = [req.session.userId, startDate];
+        
+        if (filter) {
+            // Apply any additional filters here based on the filter parameter
+            // But don't limit the results to a specific page
+        }
 
         const { rows } = await pool.query(`
             SELECT 
@@ -1659,12 +2308,10 @@ app.get('/api/analytics/revenue-trend', requireAuth, async (req, res) => {
                 COALESCE(SUM(total), 0) as revenue,
                 COALESCE(AVG(total), 0) as avg_ticket
             FROM sales
-            WHERE user_id = $1 
-            AND sale_date >= $2
-            AND sale_date <= CURRENT_DATE
+            WHERE ${filterCondition}
             GROUP BY DATE(sale_date)
             ORDER BY date ASC
-        `, [req.session.userId, startDate]);
+        `, params);
 
         // Fill missing dates with zero values
         const result = [];
@@ -2219,16 +2866,42 @@ app.get('/clientes/:id/historico', requireAuth, async (req, res) => {
                 s.total, 
                 s.installments as total_installments,
                 ARRAY_AGG(DISTINCT p.name) as products,
-                COUNT(DISTINCT CASE WHEN i.paid THEN i.id END) as paid_installments,
-                COALESCE(SUM(CASE WHEN i.paid THEN i.value ELSE 0 END), 0) as paid_amount,
-                s.total - COALESCE(SUM(CASE WHEN i.paid THEN i.value ELSE 0 END), 0) as remaining_amount,
-                s.installments - COUNT(DISTINCT CASE WHEN i.paid THEN i.id END) as remaining_installments,
+                COALESCE(
+                    (SELECT COUNT(DISTINCT i.id)
+                     FROM sale_payments spm
+                     JOIN installments i ON spm.id = i.sale_payments_id
+                     WHERE spm.sale_id = s.id 
+                     AND i.paid = true 
+                     AND i.user_id = $2), 0
+                ) as paid_installments,
+                COALESCE(
+                    (SELECT SUM(i.value)
+                     FROM sale_payments spm
+                     JOIN installments i ON spm.id = i.sale_payments_id
+                     WHERE spm.sale_id = s.id 
+                     AND i.paid = true 
+                     AND i.user_id = $2), 0
+                ) as paid_amount,
+                s.total - COALESCE(
+                    (SELECT SUM(i.value)
+                     FROM sale_payments spm
+                     JOIN installments i ON spm.id = i.sale_payments_id
+                     WHERE spm.sale_id = s.id 
+                     AND i.paid = true 
+                     AND i.user_id = $2), 0
+                ) as remaining_amount,
+                s.installments - COALESCE(
+                    (SELECT COUNT(DISTINCT i.id)
+                     FROM sale_payments spm
+                     JOIN installments i ON spm.id = i.sale_payments_id
+                     WHERE spm.sale_id = s.id 
+                     AND i.paid = true 
+                     AND i.user_id = $2), 0
+                ) as remaining_installments,
                 (s.total / GREATEST(s.installments, 1)) as installment_value
             FROM sales s
             LEFT JOIN sale_products spr ON s.id = spr.sale_id
             LEFT JOIN products p ON spr.product_id = p.id
-            LEFT JOIN sale_payments spm ON s.id = spm.sale_id
-            LEFT JOIN installments i ON spm.id = i.sale_payments_id
             WHERE s.client_id = $1 AND s.user_id = $2
             GROUP BY s.id, s.sale_date, s.total, s.installments
             ORDER BY s.sale_date DESC

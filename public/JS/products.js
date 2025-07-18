@@ -7,6 +7,7 @@ let isLoading = false;
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     initializeEventListeners();
+    initializeProfitCalculators();
     loadStatistics();
     loadProducts();
     loadBrands();
@@ -45,6 +46,107 @@ function initializeEventListeners() {
             addBrand();
         }
     });
+}
+
+// Initialize profit calculators
+function initializeProfitCalculators() {
+    // New Product Calculator
+    document.getElementById('newCostPrice').addEventListener('input', function() {
+        calculateProfit('new');
+    });
+    document.getElementById('newSellPrice').addEventListener('input', function() {
+        calculateProfit('new');
+    });
+
+    // Edit Product Calculator
+    document.getElementById('editCostPrice').addEventListener('input', function() {
+        calculateProfit('edit');
+    });
+    document.getElementById('editSellPrice').addEventListener('input', function() {
+        calculateProfit('edit');
+    });
+
+    // Campaign Calculator
+    document.getElementById('campaignCostPrice').addEventListener('input', function() {
+        calculateProfit('campaign');
+    });
+    document.getElementById('campaignSellPrice').addEventListener('input', function() {
+        calculateProfit('campaign');
+    });
+}
+
+// Calculate profit based on cost and sell prices
+function calculateProfit(type) {
+    const costPriceId = type + 'CostPrice';
+    const sellPriceId = type + 'SellPrice';
+    const profitAmountId = type + 'ProfitAmount';
+    const profitPercentId = type + 'ProfitPercent';
+
+    const costPrice = parseFloat(document.getElementById(costPriceId).value) || 0;
+    const sellPrice = parseFloat(document.getElementById(sellPriceId).value) || 0;
+
+    if (costPrice > 0 && sellPrice > 0) {
+        const profit = sellPrice - costPrice;
+        const profitPercent = ((profit / costPrice) * 100);
+
+        document.getElementById(profitAmountId).textContent = formatCurrency(profit);
+        document.getElementById(profitPercentId).textContent = profitPercent.toFixed(2) + '%';
+        
+        // Color coding for profit percentage
+        const percentElement = document.getElementById(profitPercentId);
+        percentElement.className = 'fw-bold';
+        if (profitPercent < 0) {
+            percentElement.classList.add('text-danger');
+        } else if (profitPercent < 20) {
+            percentElement.classList.add('text-warning');
+        } else {
+            percentElement.classList.add('text-success');
+        }
+    } else {
+        document.getElementById(profitAmountId).textContent = 'R$ 0,00';
+        document.getElementById(profitPercentId).textContent = '0%';
+        document.getElementById(profitPercentId).className = 'fw-bold text-muted';
+    }
+}
+
+// Copy calculated profit percentage to the input field
+function copyCalculatedProfit(type) {
+    const profitPercentText = document.getElementById(type + 'ProfitPercent').textContent;
+    const profitPercent = parseFloat(profitPercentText.replace('%', ''));
+    
+    if (!isNaN(profitPercent)) {
+        let inputId;
+        if (type === 'new') {
+            inputId = 'newProfitPercentInput';
+        } else if (type === 'edit') {
+            inputId = 'editProductProfit';
+        } else if (type === 'campaign') {
+            inputId = 'campaignProfitPercentInput';
+        }
+        
+        document.getElementById(inputId).value = profitPercent.toFixed(2);
+        
+        // Show success feedback
+        const button = event.target;
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="bi bi-check me-2"></i>Copiado!';
+        button.classList.remove('btn-outline-success');
+        button.classList.add('btn-success');
+        
+        setTimeout(() => {
+            button.innerHTML = originalText;
+            button.classList.remove('btn-success');
+            button.classList.add('btn-outline-success');
+        }, 1500);
+    }
+}
+
+// Format currency for display
+function formatCurrency(value) {
+    return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+    }).format(value);
 }
 
 // Handle search input with debounce
@@ -246,8 +348,7 @@ async function handleNewProductSubmit(e) {
         
         // Close modal and refresh
         bootstrap.Modal.getInstance(document.getElementById('newProductModal')).hide();
-        e.target.reset();
-        document.getElementById('newImagePreview').src = '/images/products/placeholder.png';
+        resetNewProductForm();
         
         showSuccess('Produto criado com sucesso!');
         loadProducts();
@@ -259,6 +360,20 @@ async function handleNewProductSubmit(e) {
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Criar Produto';
     }
+}
+
+// Reset new product form
+function resetNewProductForm() {
+    const form = document.getElementById('newProductForm');
+    form.reset();
+    document.getElementById('newImagePreview').src = '/images/products/placeholder.png';
+    
+    // Reset calculator
+    document.getElementById('newCostPrice').value = '';
+    document.getElementById('newSellPrice').value = '';
+    document.getElementById('newProfitAmount').textContent = 'R$ 0,00';
+    document.getElementById('newProfitPercent').textContent = '0%';
+    document.getElementById('newProfitPercent').className = 'fw-bold text-muted';
 }
 
 // Handle edit product form submission
@@ -324,6 +439,13 @@ async function editProduct(productId) {
         document.getElementById('editProductProfit').value = product.profit_percent || '';
         document.getElementById('editImagePreview').src = product.image;
         document.getElementById('existingImage').value = product.image;
+        
+        // Reset calculator
+        document.getElementById('editCostPrice').value = '';
+        document.getElementById('editSellPrice').value = '';
+        document.getElementById('editProfitAmount').textContent = 'R$ 0,00';
+        document.getElementById('editProfitPercent').textContent = '0%';
+        document.getElementById('editProfitPercent').className = 'fw-bold text-muted';
         
         // Show modal
         new bootstrap.Modal(document.getElementById('editProductModal')).show();
@@ -570,4 +692,227 @@ function showError(message) {
             alert.parentNode.removeChild(alert);
         }
     }, 5000);
+}
+
+// Add this function to load active campaigns for the management modal
+async function loadCampaigns() {
+    try {
+        const response = await fetch('/api/campanhas');
+        const campaigns = await response.json();
+        
+        const container = document.getElementById('campaignsList');
+        container.innerHTML = '';
+        
+        if (campaigns.length === 0) {
+            container.innerHTML = '<div class="alert alert-info">Nenhuma campanha ativa encontrada</div>';
+            return;
+        }
+        
+        campaigns.forEach(campaign => {
+            const startDate = new Date(campaign.start_date).toLocaleDateString('pt-BR');
+            const endDate = new Date(campaign.end_date).toLocaleDateString('pt-BR');
+            const isActive = new Date() >= new Date(campaign.start_date) && new Date() <= new Date(campaign.end_date);
+            
+            const campaignItem = document.createElement('div');
+            campaignItem.className = 'list-group-item';
+            campaignItem.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0">${campaign.product_name}</h6>
+                    <span class="badge ${isActive ? 'bg-success' : 'bg-secondary'}">${isActive ? 'Ativa' : 'Agendada'}</span>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-md-6 small">
+                        <strong>Marca:</strong> ${campaign.brand_name || 'N/A'}
+                    </div>
+                    <div class="col-md-6 small">
+                        <strong>Período:</strong> ${startDate} - ${endDate}
+                    </div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-md-6 small">
+                        <strong>Preço normal:</strong> R$ ${parseFloat(campaign.original_price || 0).toFixed(2)}
+                    </div>
+                    <div class="col-md-6 small">
+                        <strong>Preço promo:</strong> <span class="text-danger fw-bold">R$ ${parseFloat(campaign.promo_price || 0).toFixed(2)}</span>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-end mt-2">
+                    <button class="btn btn-sm btn-outline-primary me-2" onclick="editCampaign(${campaign.id})">
+                        <i class="bi bi-pencil"></i> Editar
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteCampaign(${campaign.id}, '${campaign.product_name}')">
+                        <i class="bi bi-trash"></i> Excluir
+                    </button>
+                </div>
+            `;
+            container.appendChild(campaignItem);
+        });
+    } catch (error) {
+        console.error('Error loading campaigns:', error);
+        showError('Erro ao carregar campanhas ativas');
+    }
+}
+
+// Add edit campaign function
+async function editCampaign(campaignId) {
+    try {
+        const response = await fetch(`/api/campanhas/${campaignId}`);
+        
+        if (!response.ok) {
+            throw new Error('Campanha não encontrada');
+        }
+        
+        const campaign = await response.json();
+        
+        // Fill edit form
+        document.getElementById('editCampaignId').value = campaign.id;
+        document.getElementById('editCampaignProduct').value = campaign.product_id;
+        document.getElementById('editCampaignStartDate').value = formatDateForInput(campaign.start_date);
+        document.getElementById('editCampaignEndDate').value = formatDateForInput(campaign.end_date);
+        document.getElementById('editCampaignPromoPrice').value = campaign.promo_price;
+        document.getElementById('editCampaignProfit').value = campaign.campaign_profit_percent || '';
+        
+        // Show modal
+        new bootstrap.Modal(document.getElementById('editCampaignModal')).show();
+        
+    } catch (error) {
+        showError(error.message);
+    }
+}
+
+// Add delete campaign function
+async function deleteCampaign(campaignId, productName) {
+    // Use our custom confirmation dialog instead of the browser default
+    showCustomConfirm(
+        'Excluir Campanha',
+        `Tem certeza que deseja excluir a campanha para "${productName}"?`,
+        'Esta ação não pode ser desfeita e o produto voltará ao preço normal.',
+        async () => {
+            try {
+                showLoading();
+                
+                const response = await fetch(`/api/campanhas/${campaignId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Erro ao excluir campanha');
+                }
+                
+                showSuccess('Campanha excluída com sucesso!');
+                loadCampaigns();
+                loadProducts(); // Refresh products to show updated pricing
+                loadStatistics();
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                hideLoading();
+            }
+        },
+        'Excluir',
+        'btn-danger'
+    );
+}
+
+// Helper function to format date for input fields
+function formatDateForInput(dateString) {
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD format
+}
+
+// Add this to initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    // Add to your existing DOMContentLoaded event
+    document.getElementById('manageCampaignsBtn').addEventListener('click', loadCampaigns);
+});
+
+// Custom confirmation dialog functions if not already defined
+function showCustomConfirm(title, message, details, callback, confirmBtnText = 'Confirmar', confirmBtnClass = 'btn-danger') {
+    // Store the callback for later execution
+    confirmCallback = callback;
+    
+    // Update modal content
+    document.getElementById('confirmationModalLabel').textContent = title;
+    document.getElementById('confirmationMessage').textContent = message;
+    
+    const detailsElement = document.getElementById('confirmationDetails');
+    if (details) {
+        detailsElement.textContent = details;
+        detailsElement.style.display = 'block';
+    } else {
+        detailsElement.style.display = 'none';
+    }
+    
+    // Configure the confirm button
+    const confirmBtn = document.getElementById('confirmActionBtn');
+    confirmBtn.textContent = confirmBtnText;
+    
+    // Reset all button classes and add the requested ones
+    confirmBtn.className = 'btn px-4 ' + confirmBtnClass;
+    
+    // Show the modal
+    const confirmModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
+    confirmModal.show();
+    
+    // Set up the confirm button event handler
+    confirmBtn.onclick = function() {
+        if (typeof confirmCallback === 'function') {
+            confirmCallback();
+        }
+        confirmModal.hide();
+    };
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const editCampaignForm = document.getElementById('editCampaignForm');
+    if (editCampaignForm) {
+        editCampaignForm.addEventListener('submit', handleEditCampaignSubmit);
+    }
+});
+
+async function handleEditCampaignSubmit(e) {
+    e.preventDefault();
+    
+    const campaignId = document.getElementById('editCampaignId').value;
+    const formData = {
+        product_id: document.getElementById('editCampaignProduct').value,
+        start_date: document.getElementById('editCampaignStartDate').value,
+        end_date: document.getElementById('editCampaignEndDate').value,
+        promo_price: document.getElementById('editCampaignPromoPrice').value,
+        profit_percentual: document.getElementById('editCampaignProfit').value || 0
+    };
+    
+    try {
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Atualizando...';
+        
+        const response = await fetch(`/api/campanhas/${campaignId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Erro ao atualizar campanha');
+        }
+        
+        // Close modal and refresh
+        bootstrap.Modal.getInstance(document.getElementById('editCampaignModal')).hide();
+        
+        showSuccess('Campanha atualizada com sucesso!');
+        loadCampaigns();
+        loadProducts(); // Refresh products to show updated pricing
+        loadStatistics();
+        
+    } catch (error) {
+        showError(error.message);
+    } finally {
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Atualizar Campanha';
+    }
 }

@@ -592,7 +592,15 @@ async function openHistoryModal(clientId) {
         } else {
             historyEmpty.style.display = 'none';
             historyContent.innerHTML = history.map(item => {
-                const isPaidInFull = item.remaining_installments === 0;
+                // Fix: Correctly determine payment status
+                // A sale is fully paid when either:
+                // 1. The remaining amount is zero OR
+                // 2. All installments have been paid
+                const isPaidInFull = 
+                    parseFloat(item.remaining_amount) === 0 || 
+                    parseFloat(item.remaining_amount) < 0.01 || 
+                    item.paid_installments >= item.total_installments;
+                
                 const statusBadge = isPaidInFull ? 
                     '<span class="badge bg-success">Pago</span>' : 
                     '<span class="badge bg-warning text-dark">Pendente</span>';
@@ -625,32 +633,50 @@ async function openHistoryModal(clientId) {
 }
 
 // Confirm and delete client
-async function confirmDelete(clientId) {
+function confirmDelete(clientId) {
     const client = allClients.find(c => c.id == clientId);
     if (!client) return;
 
-    const confirmMessage = `Tem certeza que deseja excluir o cliente "${client.name}"?\n\nEsta ação não pode ser desfeita.`;
-    
-    if (!confirm(confirmMessage)) {
-        return;
-    }
+    showCustomConfirm(
+        'Excluir Cliente - LGPD',
+        `Tem certeza que deseja excluir o cliente "${client.name}"?`,
+        'Em conformidade com a LGPD, os dados pessoais serão removidos. Se existirem vendas associadas, os dados pessoais serão anonimizados e os registros fiscais preservados.',
+        async () => {
+            try {
+                showSpinner();
+                const response = await fetch(`/clientes/${clientId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        deleteReason: 'user_request'
+                    })
+                });
 
-    try {
-        const response = await fetch(`/clientes/${clientId}`, {
-            method: 'DELETE'
-        });
+                if (!response.ok) {
+                    throw new Error('Failed to delete client');
+                }
 
-        if (!response.ok) {
-            throw new Error('Failed to delete client');
+                const result = await response.json();
+                
+                // Check if there were preserved sales
+                if (result.anonymized) {
+                    showNotification(result.message, 'info');
+                } else {
+                    showNotification(result.message, 'success');
+                }
+
+                // Reload clients
+                await loadClients();
+            } catch (error) {
+                console.error('Error deleting client:', error);
+                showNotification('Erro ao excluir cliente', 'error');
+            } finally {
+                hideSpinner();
+            }
         }
-
-        // Reload clients
-        await loadClients();
-        showNotification('Cliente excluído com sucesso!', 'success');
-    } catch (error) {
-        console.error('Error deleting client:', error);
-        showNotification('Erro ao excluir cliente', 'error');
-    }
+    );
 }
 
 // Bulk actions functions
@@ -754,42 +780,114 @@ async function bulkUpdateDebt() {
 }
 
 // Bulk delete clients
-async function bulkDelete() {
-    const confirmMessage = `Tem certeza que deseja excluir ${selectedClients.length} clientes selecionados?\n\nEsta ação não pode ser desfeita.`;
-    
-    if (!confirm(confirmMessage)) {
+function bulkDelete() {
+    if (selectedClients.length === 0) {
+        showNotification('Nenhum cliente selecionado', 'error');
         return;
     }
     
-    try {
-        const response = await fetch('/clientes/bulk-delete', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                clientIds: selectedClients
-            })
-        });
-        
-        if (!response.ok) {
-            throw new Error('Failed to delete clients');
+    showCustomConfirm(
+        'Excluir Clientes',
+        `Tem certeza que deseja excluir ${selectedClients.length} clientes selecionados?`,
+        'Esta ação não pode ser desfeita, mas vendas associadas serão preservadas no histórico.',
+        async () => {
+            // This code runs when the user confirms
+            try {
+                showSpinner();
+                
+                let preservedSalesCount = 0;
+                let deletedCount = 0;
+                
+                // Process clients one by one to handle errors individually
+                for (const clientId of selectedClients) {
+                    try {
+                        const response = await fetch(`/clientes/${clientId}`, {
+                            method: 'DELETE'
+                        });
+                        
+                        if (response.ok) {
+                            const result = await response.json();
+                            deletedCount++;
+                            
+                            if (result.preservedSales) {
+                                preservedSalesCount += result.preservedSales;
+                            }
+                        }
+                    } catch (err) {
+                        console.error(`Error deleting client ${clientId}:`, err);
+                        // Continue with other clients even if one fails
+                    }
+                }
+                
+                // Reload clients
+                await loadClients();
+                
+                if (preservedSalesCount > 0) {
+                    showNotification(`${deletedCount} clientes excluídos. ${preservedSalesCount} vendas foram preservadas no histórico.`, 'info');
+                } else {
+                    showNotification(`${deletedCount} clientes excluídos com sucesso!`, 'success');
+                }
+                
+                // Clear selection
+                selectedClients = [];
+                updateBulkActionsVisibility();
+                
+                // Close modal
+                const bulkModal = bootstrap.Modal.getInstance(document.getElementById('bulkActionsModal'));
+                if (bulkModal) bulkModal.hide();
+                
+            } catch (error) {
+                console.error('Error in bulk delete operation:', error);
+                showNotification('Erro ao excluir alguns clientes', 'error');
+            } finally {
+                hideSpinner();
+            }
         }
-        
-        // Reload clients
-        await loadClients();
-        showNotification(`${selectedClients.length} clientes excluídos com sucesso!`, 'success');
-        
-        // Clear selection
-        selectedClients = [];
-        updateBulkActionsVisibility();
-        
-        // Close modal
-        const modal = bootstrap.Modal.getInstance(document.getElementById('bulkActionsModal'));
-        modal.hide();
-    } catch (error) {
-        console.error('Error deleting clients:', error);
-        showNotification('Erro ao excluir clientes', 'error');
+    );
+}
+
+let confirmCallback = null;
+
+function showCustomConfirm(title, message, details, callback, confirmBtnText = 'Confirmar', confirmBtnClass = 'btn-danger') {
+    // Store the callback for later execution
+    confirmCallback = callback;
+    
+    // Update modal content
+    document.getElementById('confirmationModalLabel').textContent = title;
+    document.getElementById('confirmationMessage').textContent = message;
+    
+    const detailsElement = document.getElementById('confirmationDetails');
+    if (details) {
+        detailsElement.textContent = details;
+        detailsElement.style.display = 'block';
+    } else {
+        detailsElement.style.display = 'none';
+    }
+    
+    // Configure the confirm button
+    const confirmBtn = document.getElementById('confirmActionBtn');
+    confirmBtn.textContent = confirmBtnText;
+    
+    // Reset all button classes and add the requested ones
+    confirmBtn.className = 'btn px-4 ' + confirmBtnClass;
+    
+    // Show the modal
+    const confirmModal = new bootstrap.Modal(document.getElementById('confirmationModal'));
+    confirmModal.show();
+    
+    // Set up the confirm button event handler
+    confirmBtn.onclick = function() {
+        if (typeof confirmCallback === 'function') {
+            confirmCallback();
+        }
+        confirmModal.hide();
+    };
+}
+
+function closeCustomConfirm() {
+    const confirmModal = bootstrap.Modal.getInstance(document.getElementById('confirmationModal'));
+    if (confirmModal) {
+        confirmModal.hide();
     }
 }
 
