@@ -36,7 +36,12 @@ app.use("/images", express.static("public/images"));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json());
 app.set("view engine", "ejs");
-app.set("views", path.join(__dirname, "views")); // Add this line to explicitly set views path 
+app.set("views", [
+  path.join(__dirname, "Views"),        // Try with capital V
+  path.join(__dirname, "views"),        // Try with lowercase v
+  path.join(__dirname, "Views/partials"),  // Try partials with capital V
+  path.join(__dirname, "views/partials")   // Try partials with lowercase v
+]);
 
 // ========== MULTER CONFIGURATION ==========
 const storage = multer.diskStorage({
