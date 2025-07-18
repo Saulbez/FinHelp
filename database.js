@@ -1,4 +1,9 @@
 import pg from 'pg';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file for local development
+dotenv.config();
+
 const { Pool } = pg;
 
 let pool;
@@ -14,8 +19,8 @@ if (process.env.DATABASE_URL) {
   pool = new Pool({
     user: process.env.DB_USER,
     host: process.env.DB_HOST,
-    database: process.env.DB_NAME, // Your local DB name
-    password: process.env.DB_PASSWORD, // Your local password
+    database: process.env.DB_NAME,
+    password: process.env.DB_PASSWORD,
     port: process.env.DB_PORT,
   });
 }
