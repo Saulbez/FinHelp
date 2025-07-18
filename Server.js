@@ -8,6 +8,7 @@ import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 const app = express();
 const port = process.env.PORT || 3000;
