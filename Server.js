@@ -30,6 +30,51 @@ app.use(session({
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const setupDirectories = () => {
+  // Create lowercase directories
+  if (!fs.existsSync(path.join(__dirname, 'public/styles'))) {
+    fs.mkdirSync(path.join(__dirname, 'public/styles'), { recursive: true });
+    console.log('Created lowercase styles directory');
+  }
+  
+  if (!fs.existsSync(path.join(__dirname, 'public/javascript')) || 
+      !fs.existsSync(path.join(__dirname, 'public/js'))) {
+    fs.mkdirSync(path.join(__dirname, 'public/js'), { recursive: true });
+    console.log('Created lowercase js directory');
+  }
+  
+  // Copy files from uppercase to lowercase directories
+  try {
+    if (fs.existsSync(path.join(__dirname, 'public/Styles'))) {
+      fs.readdirSync(path.join(__dirname, 'public/Styles')).forEach(file => {
+        fs.copyFileSync(
+          path.join(__dirname, 'public/Styles', file),
+          path.join(__dirname, 'public/styles', file)
+        );
+      });
+      console.log('Copied CSS files to lowercase directory');
+    }
+    
+    const jsSourceDir = fs.existsSync(path.join(__dirname, 'public/Javascript')) 
+      ? 'public/Javascript' 
+      : 'public/JS';
+      
+    if (fs.existsSync(path.join(__dirname, jsSourceDir))) {
+      fs.readdirSync(path.join(__dirname, jsSourceDir)).forEach(file => {
+        fs.copyFileSync(
+          path.join(__dirname, jsSourceDir, file),
+          path.join(__dirname, 'public/js', file)
+        );
+      });
+      console.log('Copied JS files to lowercase directory');
+    }
+  } catch (err) {
+    console.error('Error copying files:', err);
+  }
+};
+
+setupDirectories();
+
 // ========== MIDDLEWARE SETUP ==========
 app.use(express.static("public"));
 app.use("/images", express.static("public/images"));
