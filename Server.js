@@ -35,6 +35,7 @@ app.use(express.static("public"));
 app.use("/images", express.static("public/images"));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json());
+app.use(express.static(path.join(__dirname, "public")));
 app.set("view engine", "ejs");
 app.set("views", [
   path.join(__dirname, "Views"),        // Try with capital V
