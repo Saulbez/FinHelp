@@ -62,9 +62,9 @@ if (!fs.existsSync(path.join(__dirname, 'public/images/products'))) {
       console.log('Copied CSS files to lowercase directory');
     }
     
-    const jsSourceDir = fs.existsSync(path.join(__dirname, 'public/Javascript')) 
-      ? 'public/Javascript' 
-      : 'public/JS';
+    const jsSourceDir = fs.existsSync(path.join(__dirname, 'public/JS')) 
+      ? 'public/JS' 
+      : 'public/js';
       
     if (fs.existsSync(path.join(__dirname, jsSourceDir))) {
       fs.readdirSync(path.join(__dirname, jsSourceDir)).forEach(file => {
