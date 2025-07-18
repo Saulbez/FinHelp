@@ -6,7 +6,8 @@ import bodyParser from "body-parser";
 import pool from "./database.js";
 import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
-import path from "path";
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -26,12 +27,16 @@ app.use(session({
   cookie: { maxAge: 1000 * 60 * 60 * 24 } // 1 day
 }));
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // ========== MIDDLEWARE SETUP ==========
 app.use(express.static("public"));
 app.use("/images", express.static("public/images"));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json());
 app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views")); // Add this line to explicitly set views path
 
 // ========== MULTER CONFIGURATION ==========
 const storage = multer.diskStorage({
