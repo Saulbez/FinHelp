@@ -36,7 +36,7 @@ app.use("/images", express.static("public/images"));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json());
 app.set("view engine", "ejs");
-app.set("views", path.join(__dirname, "views")); // Add this line to explicitly set views path
+app.set("views", path.join(__dirname, "views")); // Add this line to explicitly set views path 
 
 // ========== MULTER CONFIGURATION ==========
 const storage = multer.diskStorage({
