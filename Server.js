@@ -1520,7 +1520,7 @@ app.get('/api/vendas', requireAuth, async (req, res) => {
 app.get('/api/vendas/:id', requireAuth, async (req, res) => {
     try {
         const { rows } = await pool.query(`
-            SELECT 
+            SELECT
                 s.*,
                 c.name as client_name, c.phone as client_phone,
                 (
@@ -2085,10 +2085,93 @@ app.post('/api/acoes-lote/marcar-parcelas', requireAuth, async (req, res) => {
 // ========== PAYMENT METHODS ==========
 app.get('/api/payment-methods', requireAuth, async (req, res) => {
     try {
-        const { rows } = await pool.query('SELECT * FROM payment_methods ORDER BY method');
+        // Get system default methods and user custom methods
+        const { rows } = await pool.query(`
+            SELECT id, method, is_system_default, requires_installments 
+            FROM payment_methods 
+            WHERE is_system_default = true 
+               OR user_id = $1
+            ORDER BY is_system_default DESC, method ASC
+        `, [req.session.userId]);
+        
         res.json(rows);
     } catch (error) {
         handleError(res, error, 'Erro ao buscar métodos de pagamento');
+    }
+});
+
+app.post('/api/payment-methods', requireAuth, async (req, res) => {
+    try {
+        const { method, requires_installments } = req.body;
+        validateRequired(['method'], req.body);
+        
+        // Check for duplicate method names for this user
+        const existing = await pool.query(
+            `SELECT id FROM payment_methods 
+             WHERE LOWER(method) = LOWER($1) 
+             AND (is_system_default = true OR user_id = $2)`,
+            [method, req.session.userId]
+        );
+        
+        if (existing.rows.length > 0) {
+            return res.status(400).json({ error: 'Método de pagamento já existe' });
+        }
+        
+        const { rows } = await pool.query(
+            `INSERT INTO payment_methods (method, requires_installments, user_id, is_system_default)
+             VALUES ($1, $2, $3, false) RETURNING *`,
+            [method, requires_installments || false, req.session.userId]
+        );
+        
+        res.status(201).json(rows[0]);
+    } catch (error) {
+        handleError(res, error, 'Erro ao criar método de pagamento');
+    }
+});
+
+// DELETE endpoint for custom methods only
+app.delete('/api/payment-methods/:id', requireAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // Check if it's a system default method
+        const methodCheck = await pool.query(
+            'SELECT is_system_default FROM payment_methods WHERE id = $1',
+            [id]
+        );
+        
+        if (methodCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Método de pagamento não encontrado' });
+        }
+        
+        if (methodCheck.rows[0].is_system_default) {
+            return res.status(403).json({ 
+                error: 'Métodos de pagamento padrão não podem ser excluídos' 
+            });
+        }
+        
+        // Check if the method is being used in sales
+        const usageCheck = await pool.query(
+            `SELECT COUNT(*) FROM sale_payments 
+             WHERE payment_method_id = $1 AND user_id = $2`,
+            [id, req.session.userId]
+        );
+        
+        if (parseInt(usageCheck.rows[0].count) > 0) {
+            return res.status(400).json({
+                error: 'Este método de pagamento está em uso e não pode ser excluído',
+                count: parseInt(usageCheck.rows[0].count)
+            });
+        }
+        
+        await pool.query(
+            'DELETE FROM payment_methods WHERE id = $1 AND user_id = $2 AND is_system_default = false',
+            [id, req.session.userId]
+        );
+        
+        res.json({ message: 'Método de pagamento excluído com sucesso' });
+    } catch (error) {
+        handleError(res, error, 'Erro ao excluir método de pagamento');
     }
 });
 

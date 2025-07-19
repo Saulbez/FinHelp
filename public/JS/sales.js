@@ -441,82 +441,104 @@ document.addEventListener('DOMContentLoaded', () => {
         calculateTotals() {
             const subtotal = currentCart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
             
-            document.getElementById('subtotalAmount').textContent = formatCurrency(subtotal);
+            const subtotalElement = document.getElementById('subtotalAmount');
+            if (subtotalElement) {
+                subtotalElement.textContent = formatCurrency(subtotal);
+            }
             
             let totalInterest = 0;
             let totalPaid = 0;
 
             document.querySelectorAll('.payment-method').forEach(select => {
+                // Only consider visible payment methods with values
                 if (select.value && !select.closest('.d-none')) {
                     const paymentIndex = select.dataset.payment;
                     const amountInput = document.querySelector(`.payment-amount[data-payment="${paymentIndex}"]`);
                     const interestInput = document.querySelector(`.payment-interest[data-payment="${paymentIndex}"]`);
                     
                     if (amountInput && amountInput.value) {
+                        // Get base amount from input
                         const baseAmount = parseCurrencyInput(amountInput.value);
                         const interestRate = parseFloat(interestInput?.value || 0);
                         
-                        const method = paymentMethodsData.find(m => m.id === parseInt(select.value));
+                        // Determine if this payment method applies interest
+                        const method = window.paymentMethodsData?.find(m => m.id === parseInt(select.value)) || 
+                                      paymentMethodsData.find(m => m.id === parseInt(select.value));
+                                      
                         const isCreditMethod = method && (
                             method.method.toLowerCase().includes('crédito') || 
-                            method.method.toLowerCase().includes('credito')
+                            method.method.toLowerCase().includes('credito') ||
+                            (method.requires_installments === true)
                         );
                         
+                        // Calculate interest if applicable
                         let interest = 0;
-                        if (isCreditMethod) {
+                        if (isCreditMethod && interestRate > 0) {
                             interest = baseAmount * (interestRate / 100);
                         }
                         
+                        // Add to totals
                         totalPaid += baseAmount;
                         totalInterest += interest;
                     }
                 }
             });
 
+            // Calculate final total and remaining amount
             const total = subtotal + totalInterest;
-            const remaining = Math.max(0, subtotal - totalPaid);
+            const remaining = Math.max(0, total - totalPaid);
 
-            document.getElementById('interestAmount').textContent = formatCurrency(totalInterest);
-            document.getElementById('totalAmount').textContent = formatCurrency(total);
-            document.getElementById('paidAmount').textContent = formatCurrency(totalPaid);
-            document.getElementById('remainingAmount').textContent = formatCurrency(remaining);
-
+            // Update displays
+            const interestElement = document.getElementById('interestAmount');
+            const totalElement = document.getElementById('totalAmount');
+            const paidElement = document.getElementById('paidAmount');
+            const remainingElement = document.getElementById('remainingAmount');
             const remainingRow = document.getElementById('remainingRow');
-            if (remainingRow) {
-                remainingRow.style.display = remaining > 0 ? 'flex' : 'none';
-            }
 
-            this.autoFillPayments(subtotal);
+            if (interestElement) interestElement.textContent = formatCurrency(totalInterest);
+            if (totalElement) totalElement.textContent = formatCurrency(total);
+            if (paidElement) paidElement.textContent = formatCurrency(totalPaid);
+            if (remainingElement) remainingElement.textContent = formatCurrency(remaining);
+            if (remainingRow) remainingRow.style.display = remaining > 0 ? 'flex' : 'none';
+
+            // Auto-fill payment methods based on new total
+            this.autoFillPayments(total);
         },
 
-        autoFillPayments(subtotal) {
+        autoFillPayments(total) {
             const payment1Amount = document.querySelector('.payment-amount[data-payment="1"]');
             const payment2Amount = document.querySelector('.payment-amount[data-payment="2"]');
             const payment2Container = document.getElementById('payment2');
             
             if (!payment1Amount) return;
             
+            // Check if payment method 2 is active (visible)
             const payment2Active = payment2Container && !payment2Container.classList.contains('d-none');
             
             if (!payment2Active) {
+                // If there's only one payment method, it should get the full amount
                 if (!payment1Amount.value || parseCurrencyInput(payment1Amount.value) === 0) {
-                    payment1Amount.value = formatInputValue(subtotal);
+                    payment1Amount.value = formatInputValue(total);
                 }
             } else if (payment2Amount) {
+                // Get current values of both payment methods
                 const payment1Value = parseCurrencyInput(payment1Amount.value);
                 const payment2Value = parseCurrencyInput(payment2Amount.value);
                 
                 if (payment1Value === 0 && payment2Value === 0) {
-                    const half = subtotal / 2;
+                    // If both are empty, split evenly
+                    const half = total / 2;
                     payment1Amount.value = formatInputValue(half);
                     payment2Amount.value = formatInputValue(half);
                 } else if (payment1Value > 0 && payment2Value === 0) {
-                    const remaining = subtotal - payment1Value;
+                    // If payment 1 has a value but payment 2 doesn't, fill payment 2
+                    const remaining = total - payment1Value;
                     if (remaining > 0) {
                         payment2Amount.value = formatInputValue(remaining);
                     }
                 } else if (payment2Value > 0 && payment1Value === 0) {
-                    const remaining = subtotal - payment2Value;
+                    // If payment 2 has a value but payment 1 doesn't, fill payment 1
+                    const remaining = total - payment2Value;
                     if (remaining > 0) {
                         payment1Amount.value = formatInputValue(remaining);
                     }
@@ -543,19 +565,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
         attachListeners() {
             document.querySelectorAll('.payment-method').forEach(select => {
-                select.addEventListener('change', (e) => this.handleMethodChange(e));
+                // Remove existing listeners first to avoid duplicates
+                const newSelect = select.cloneNode(true);
+                select.parentNode.replaceChild(newSelect, select);
+                newSelect.addEventListener('change', e => this.handleMethodChange(e));
             });
 
             document.querySelectorAll('.payment-amount').forEach(input => {
-                input.addEventListener('input', debounce(() => cart.calculateTotals(), 300));
-                input.addEventListener('blur', () => {
-                    const value = parseCurrencyInput(input.value);
-                    input.value = formatInputValue(value);
+                const newInput = input.cloneNode(true);
+                input.parentNode.replaceChild(newInput, input);
+                
+                newInput.addEventListener('input', debounce(() => cart.calculateTotals(), 300));
+                newInput.addEventListener('blur', () => {
+                    const value = parseCurrencyInput(newInput.value);
+                    newInput.value = formatInputValue(value);
+                    cart.calculateTotals();
                 });
             });
 
             document.querySelectorAll('.payment-interest').forEach(input => {
-                input.addEventListener('input', debounce(() => cart.calculateTotals(), 300));
+                const newInput = input.cloneNode(true);
+                input.parentNode.replaceChild(newInput, input);
+                newInput.addEventListener('input', debounce(() => cart.calculateTotals(), 300));
             });
         },
 
@@ -566,10 +597,13 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (!installmentsSection) return;
 
-            const method = paymentMethodsData.find(m => m.id === parseInt(select.value));
+            const method = window.paymentMethodsData?.find(m => m.id === parseInt(select.value)) || 
+                          paymentMethodsData.find(m => m.id === parseInt(select.value));
+                          
             const isCreditMethod = method && (
                 method.method.toLowerCase().includes('crédito') || 
-                method.method.toLowerCase().includes('credito')
+                method.method.toLowerCase().includes('credito') ||
+                (method.requires_installments === true)
             );
 
             if (select.value && isCreditMethod) {
@@ -590,8 +624,13 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 installmentsSection.classList.add('d-none');
                 installmentsSection.style.display = 'none';
+                
+                // Reset interest to 0 if not a credit method
+                const interestInput = installmentsSection.querySelector('.payment-interest');
+                if (interestInput) interestInput.value = '0';
             }
 
+            // Trigger totals calculation after a brief delay to allow DOM updates
             setTimeout(() => cart.calculateTotals(), 100);
         },
 
@@ -599,17 +638,30 @@ document.addEventListener('DOMContentLoaded', () => {
             const payment2 = document.getElementById('payment2');
             if (payment2) {
                 payment2.classList.remove('d-none');
+                // Auto-calculate totals after showing second payment method
+                setTimeout(() => cart.calculateTotals(), 100);
             }
         },
 
         remove(paymentIndex) {
             const payment = document.getElementById(`payment${paymentIndex}`);
             if (payment) {
+                // Reset form fields
+                const methodSelect = payment.querySelector('.payment-method');
+                const amountInput = payment.querySelector('.payment-amount');
+                const installmentsSection = document.getElementById(`installments${paymentIndex}`);
+                
+                if (methodSelect) methodSelect.value = '';
+                if (amountInput) amountInput.value = '';
+                
+                // Hide installments section if visible
+                if (installmentsSection) installmentsSection.classList.add('d-none');
+                
+                // Hide the payment container
                 payment.classList.add('d-none');
-                payment.querySelectorAll('input, select').forEach(input => {
-                    input.value = '';
-                });
-                cart.calculateTotals();
+                
+                // Recalculate totals
+                setTimeout(() => cart.calculateTotals(), 100);
             }
         }
     };
@@ -780,6 +832,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const payments = [];
             let hasValidPayment = false;
+            let totalPaid = 0;
 
             document.querySelectorAll('.payment-method').forEach(select => {
                 if (select.value && !select.closest('.d-none')) {
@@ -792,13 +845,23 @@ document.addEventListener('DOMContentLoaded', () => {
                         const amount = parseCurrencyInput(amountInput.value);
                         if (amount > 0) {
                             const method = paymentMethodsData.find(m => m.id === parseInt(select.value));
+                            const isCredit = method && (
+                                method.method.toLowerCase().includes('crédito') || 
+                                method.method.toLowerCase().includes('credito') ||
+                                (method.requires_installments === true)
+                            );
+                            
+                            const interestRate = isCredit ? parseFloat(interestInput?.value || 0) : 0;
+                            
                             payments.push({
                                 method: select.value,
                                 amount: amount,
-                                installments: parseInt(installmentsSelect?.value || 1),
-                                interest: parseFloat(interestInput?.value || 0),
-                                isCredit: method && (method.method.toLowerCase().includes('crédito') || method.method.toLowerCase().includes('credito'))
+                                installments: isCredit ? parseInt(installmentsSelect?.value || 1) : 1,
+                                interest: interestRate,
+                                isCredit: isCredit
                             });
+                            
+                            totalPaid += amount;
                             hasValidPayment = true;
                         }
                     }
@@ -810,12 +873,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Validate payment total
+            // Calculate subtotal and total with interest
             const subtotal = currentCart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            const totalPaid = payments.reduce((sum, payment) => sum + payment.amount, 0);
+            let totalInterest = 0;
+            
+            // Calculate total interest
+            payments.forEach(payment => {
+                if (payment.isCredit && payment.interest > 0) {
+                    const interestAmount = payment.amount * (payment.interest / 100);
+                    totalInterest += interestAmount;
+                }
+            });
+            
+            const total = subtotal + totalInterest;
 
-            if (Math.abs(totalPaid - subtotal) > 0.01) {
-                showNotification(`Valor pago (${formatCurrency(totalPaid)}) deve ser igual ao subtotal (${formatCurrency(subtotal)})`, 'warning');
+            // Validate total payment equals total with interest
+            if (Math.abs(totalPaid - total) > 0.01) {
+                showNotification(`Valor total pago (${formatCurrency(totalPaid)}) deve ser igual ao total com juros (${formatCurrency(total)})`, 'warning');
                 return;
             }
 
@@ -986,7 +1060,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ========== BULK ACTIONS ==========
     function updateBulkActionsVisibility() {
-        // This code updates or adds to the existing updateBulkActionsVisibility function
         const selectedCheckboxes = document.querySelectorAll('.sale-checkbox:checked');
         const bulkActionsPanel = document.getElementById('bulkActionsPanel');
         const selectedCount = document.getElementById('selectedCount');
@@ -1276,7 +1349,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Add the mark installment as paid function
+    // Mark installment as paid function
     const markInstallmentPaid = async (installmentId) => {
         if (!confirm('Tem certeza que deseja marcar esta parcela como paga?')) {
             return;
@@ -1310,7 +1383,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-// Make it globally available
+    // Make markInstallmentPaid globally available
     window.markInstallmentPaid = markInstallmentPaid;
 
     const duplicateSale = async (saleId) => {
@@ -1354,7 +1427,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Important: Update the monthly profit after deletion
                 console.log('Updating monthly profit after sale deletion');
                 if (typeof scheduleUpdateMonthlyProfit === 'function') {
-                    scheduleUpdateMonthlyProfit(1000); // Delay of 1 second
+                    scheduleUpdateMonthlyProfit(1000);
                 } else if (typeof updateMonthlyProfit === 'function') {
                     setTimeout(updateMonthlyProfit, 1000);
                 }
@@ -1390,7 +1463,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         
         document.body.appendChild(loader);
-        setTimeout(hideLoading, 10000);
+        setTimeout(hideLoading, 10000); // Failsafe to prevent loader being stuck
     };
 
     const hideLoading = () => {
@@ -1432,7 +1505,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // ========== ANALYTICS FUNCTIONS (PRESERVED) ==========
+    // ========== ANALYTICS FUNCTIONS ==========
     const loadAnalyticsData = async () => {
         try {
             console.log('Loading analytics data...');
@@ -1716,7 +1789,609 @@ document.addEventListener('DOMContentLoaded', () => {
         updateCounter();
     };
 
-    // ========== QUICK ACTIONS (PRESERVED) ==========
+    // ========== PAYMENT METHODS ==========
+    window.loadPaymentMethodsData = async function() {
+        try {
+            const response = await fetch('/api/payment-methods');
+            if (response.ok) {
+                const methods = await response.json();
+                window.paymentMethodsData = methods;
+                console.log('Payment methods data loaded:', methods.length, 'methods');
+                return methods;
+            } else {
+                console.error('Failed to load payment methods:', response.status);
+                return [];
+            }
+        } catch (error) {
+            console.error('Error loading payment methods data:', error);
+            return [];
+        }
+    };
+
+    async function loadPaymentMethods() {
+        try {
+            const response = await fetch('/api/payment-methods');
+            const methods = await response.json();
+            
+            const container = document.getElementById('paymentMethodsList');
+            if (!container) return;
+            container.innerHTML = '';
+            
+            if (methods.length === 0) {
+                container.innerHTML = '<div class="alert alert-info">Nenhum método de pagamento encontrado</div>';
+                return;
+            }
+            
+            // Store payment methods in global variable for reference in other functions
+            window.paymentMethodsData = methods;
+            
+            methods.forEach(method => {
+                const methodItem = document.createElement('div');
+                methodItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                
+                const badgeClass = method.is_system_default ? 'bg-secondary' : 'bg-primary';
+                const badgeText = method.is_system_default ? 'Padrão' : 'Personalizado';
+                
+                methodItem.innerHTML = `
+                    <div>
+                        <strong>${method.method}</strong>
+                        <span class="badge ${badgeClass} ms-2">${badgeText}</span>
+                        ${method.requires_installments ? 
+                            '<span class="badge bg-info ms-1">Parcelável</span>' : ''}
+                    </div>
+                    <div>
+                        ${!method.is_system_default ? `
+                            <button class="btn btn-sm btn-outline-danger" 
+                                    onclick="deletePaymentMethod(${method.id}, '${method.method}')">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+                container.appendChild(methodItem);
+            });
+            
+        } catch (error) {
+            console.error('Error loading payment methods:', error);
+            showNotification('Erro ao carregar métodos de pagamento', 'danger');
+        }
+    }
+
+    // Add payment method
+    async function addPaymentMethod() {
+        const nameInput = document.getElementById('newPaymentMethodName');
+        const requiresInstallments = document.getElementById('requiresInstallments').checked;
+        const name = nameInput.value.trim();
+        
+        if (!name) {
+            showNotification('Digite o nome do método de pagamento', 'warning');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/payment-methods', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    method: name,
+                    requires_installments: requiresInstallments 
+                })
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Erro ao criar método de pagamento');
+            }
+            
+            nameInput.value = '';
+            document.getElementById('requiresInstallments').checked = false;
+            showNotification('Método de pagamento criado com sucesso!', 'success');
+            
+            // Reload payment methods and update dropdowns
+            await loadPaymentMethods();
+            if (window.payments && typeof window.payments.setup === 'function') {
+                window.payments.setup();
+            }
+            
+        } catch (error) {
+            showNotification(error.message, 'danger');
+        }
+    }
+
+    // Delete payment method
+    async function deletePaymentMethod(methodId, methodName) {
+        if (!confirm(`Tem certeza que deseja excluir o método "${methodName}"?`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/payment-methods/${methodId}`, {
+                method: 'DELETE'
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Erro ao excluir método de pagamento');
+            }
+            
+            showNotification('Método de pagamento excluído com sucesso!', 'success');
+            
+            // Reload payment methods and update dropdowns
+            await loadPaymentMethods();
+            if (window.payments && typeof window.payments.setup === 'function') {
+                window.payments.setup();
+            }
+            
+        } catch (error) {
+            showNotification(error.message, 'danger');
+        }
+    }
+
+    // Create a function to properly handle the payment methods modal
+    function createPaymentMethodsModal() {
+        // Check if a modal already exists in the DOM
+        let modalElement = document.getElementById('paymentMethodsModal');
+        
+        // If not found, we need to create it from scratch
+        if (!modalElement) {
+            console.log('Creating new payment methods modal element');
+            const modalHTML = `
+                <div class="modal fade" id="paymentMethodsModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header bg-primary text-white">
+                                <h5 class="modal-title">
+                                    <i class="bi bi-credit-card me-2"></i>Métodos de Pagamento
+                                </h5>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="row mb-3">
+                                    <div class="col-md-8">
+                                        <input type="text" id="newPaymentMethodName" class="form-control" 
+                                            placeholder="Nome do método de pagamento">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <button class="btn btn-primary w-100" onclick="addPaymentMethod()">
+                                            <i class="bi bi-plus-circle me-2"></i>Adicionar
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="requiresInstallments">
+                                    <label class="form-check-label" for="requiresInstallments">
+                                        Permite parcelamento
+                                    </label>
+                                </div>
+                                <div id="paymentMethodsList" class="list-group">
+                                    <!-- Payment methods will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Append to the body
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+            modalElement = document.getElementById('paymentMethodsModal');
+        }
+        
+        return modalElement;
+    }
+
+    // Function to remove a payment method from the form
+    function removePaymentMethod(paymentIndex) {
+        const payment = document.getElementById(`payment${paymentIndex}`);
+        if (payment) {
+            // Reset form fields
+            const methodSelect = payment.querySelector('.payment-method');
+            const amountInput = payment.querySelector('.payment-amount');
+            const installmentsSection = document.getElementById(`installments${paymentIndex}`);
+            
+            if (methodSelect) methodSelect.value = '';
+            if (amountInput) amountInput.value = '';
+            
+            // Hide installments section if visible
+            if (installmentsSection) installmentsSection.classList.add('d-none');
+            
+            // Hide the payment container
+            payment.classList.add('d-none');
+            
+            // Recalculate totals
+            if (typeof cart !== 'undefined' && cart.calculateTotals) {
+                cart.calculateTotals();
+            }
+        }
+    }
+
+    // Enhanced payment-related functions
+    window.payments = {
+        add() {
+            const payment2 = document.getElementById('payment2');
+            if (payment2) {
+                payment2.classList.remove('d-none');
+                // Auto-calculate totals after showing second payment method
+                setTimeout(() => {
+                    if (typeof cart !== 'undefined' && cart.calculateTotals) {
+                        cart.calculateTotals();
+                    }
+                }, 100);
+            }
+        },
+        
+        remove: removePaymentMethod,
+        
+        handleMethodChange(event) {
+            const select = event.target;
+            const paymentIndex = select.dataset.payment;
+            const installmentsSection = document.getElementById(`installments${paymentIndex}`);
+            
+            if (!installmentsSection) return;
+
+            const method = window.paymentMethodsData?.find(m => m.id === parseInt(select.value));
+            const isCreditMethod = method && (
+                method.method.toLowerCase().includes('crédito') || 
+                method.method.toLowerCase().includes('credito') ||
+                (method.requires_installments === true)
+            );
+
+            if (select.value && isCreditMethod) {
+                installmentsSection.classList.remove('d-none');
+                installmentsSection.style.display = 'block';
+                
+                const interestInput = installmentsSection.querySelector('.payment-interest');
+                const installmentsSelect = installmentsSection.querySelector('.payment-installments');
+                
+                if (interestInput) {
+                    interestInput.required = true;
+                    if (!interestInput.value) interestInput.value = '0';
+                }
+                if (installmentsSelect) {
+                    installmentsSelect.required = true;
+                    if (!installmentsSelect.value) installmentsSelect.value = '1';
+                }
+            } else {
+                installmentsSection.classList.add('d-none');
+                installmentsSection.style.display = 'none';
+                
+                // Reset interest to 0 if not a credit method
+                const interestInput = installmentsSection.querySelector('.payment-interest');
+                if (interestInput) interestInput.value = '0';
+            }
+
+            // Trigger totals calculation after a brief delay to allow DOM updates
+            setTimeout(() => {
+                if (window.cart && typeof window.cart.calculateTotals === 'function') {
+                    window.cart.calculateTotals();
+                }
+            }, 100);
+        },
+        
+        setup() {
+            document.querySelectorAll('.payment-method').forEach(select => {
+                select.innerHTML = '<option value="">Selecione...</option>';
+                if (Array.isArray(paymentMethodsData)) {
+                    paymentMethodsData.forEach(method => {
+                        const option = document.createElement('option');
+                        option.value = method.id;
+                        option.textContent = method.method;
+                        select.appendChild(option);
+                    });
+                }
+            });
+
+            this.attachListeners();
+        },
+
+        attachListeners() {
+            document.querySelectorAll('.payment-method').forEach(select => {
+                // Remove existing listeners first to avoid duplicates
+                select.removeEventListener('change', e => this.handleMethodChange(e));
+                select.addEventListener('change', e => this.handleMethodChange(e));
+            });
+
+            document.querySelectorAll('.payment-amount').forEach(input => {
+                input.addEventListener('input', debounce(() => {
+                    if (typeof cart !== 'undefined' && cart.calculateTotals) {
+                        cart.calculateTotals();
+                    }
+                }, 300));
+                
+                input.addEventListener('blur', () => {
+                    const value = parseCurrencyInput(input.value);
+                    input.value = formatInputValue(value);
+                    // Recalculate after formatting
+                    if (typeof cart !== 'undefined' && cart.calculateTotals) {
+                        cart.calculateTotals();
+                    }
+                });
+            });
+
+            document.querySelectorAll('.payment-interest').forEach(input => {
+                input.addEventListener('input', debounce(() => {
+                    if (typeof cart !== 'undefined' && cart.calculateTotals) {
+                        cart.calculateTotals();
+                    }
+                }, 300));
+            });
+        }
+    };
+
+    // Cart calculations for payment handling
+    if (window.cart) {
+        // Enhanced version with more robust payment handling
+        window.cart.calculateTotals = function() {
+            console.log('📊 RECALCULATING CART TOTALS');
+            
+            // Calculate subtotal from current cart
+            const subtotal = currentCart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            console.log(`Cart subtotal: ${subtotal}`);
+            
+            // Update the subtotal display
+            const subtotalElement = document.getElementById('subtotalAmount');
+            if (subtotalElement) {
+                subtotalElement.textContent = formatCurrency(subtotal);
+            }
+            
+            // Calculate interest from payment methods
+            let totalInterest = 0;
+            let totalPaid = 0;
+
+            document.querySelectorAll('.payment-method').forEach(select => {
+                // Only consider visible payment methods with values
+                if (select.value && !select.closest('.d-none')) {
+                    const paymentIndex = select.dataset.payment;
+                    const amountInput = document.querySelector(`.payment-amount[data-payment="${paymentIndex}"]`);
+                    const interestInput = document.querySelector(`.payment-interest[data-payment="${paymentIndex}"]`);
+                    
+                    if (amountInput && amountInput.value) {
+                        // Get base amount from input
+                        const baseAmount = parseCurrencyInput(amountInput.value);
+                        const interestRate = parseFloat(interestInput?.value || 0);
+                        
+                        // Determine if this payment method applies interest
+                        const method = window.paymentMethodsData?.find(m => m.id === parseInt(select.value)) || 
+                                    paymentMethodsData.find(m => m.id === parseInt(select.value));
+                                    
+                        const isCreditMethod = method && (
+                            method.method.toLowerCase().includes('crédito') || 
+                            method.method.toLowerCase().includes('credito') ||
+                            (method.requires_installments === true)
+                        );
+                        
+                        // Calculate interest if applicable
+                        let interest = 0;
+                        if (isCreditMethod && interestRate > 0) {
+                            interest = baseAmount * (interestRate / 100);
+                        }
+                        
+                        // Add to totals
+                        totalPaid += baseAmount;
+                        totalInterest += interest;
+                        
+                        console.log(`Payment ${paymentIndex}: Method=${select.value}, Amount=${baseAmount}, Interest=${interest}`);
+                    }
+                }
+            });
+
+            // Calculate final total and remaining amount
+            const total = subtotal + totalInterest;
+            const remaining = Math.max(0, total - totalPaid);
+
+            console.log(`Total: ${total}, Paid: ${totalPaid}, Interest: ${totalInterest}, Remaining: ${remaining}`);
+
+            // Update displays
+            const interestElement = document.getElementById('interestAmount');
+            const totalElement = document.getElementById('totalAmount');
+            const paidElement = document.getElementById('paidAmount');
+            const remainingElement = document.getElementById('remainingAmount');
+            const remainingRow = document.getElementById('remainingRow');
+
+            if (interestElement) interestElement.textContent = formatCurrency(totalInterest);
+            if (totalElement) totalElement.textContent = formatCurrency(total);
+            if (paidElement) paidElement.textContent = formatCurrency(totalPaid);
+            if (remainingElement) remainingElement.textContent = formatCurrency(remaining);
+            
+            if (remainingRow) {
+                remainingRow.style.display = remaining > 0 ? 'flex' : 'none';
+            }
+
+            // Auto-fill payment methods based on new total
+            this._forceUpdatePaymentAmounts(total);
+        };
+        
+        // Original autoFillPayments - redirect to our more aggressive version
+        window.cart.autoFillPayments = function(total) {
+            console.log(`Legacy autoFillPayments called with total: ${total}`);
+            this._forceUpdatePaymentAmounts(total);
+        };
+        
+        // New completely rewritten payment auto-filler with stronger logic
+        window.cart._forceUpdatePaymentAmounts = function(total) {
+            console.log(`💰 FORCE UPDATING PAYMENT AMOUNTS FOR TOTAL: ${total}`);
+            
+            const payment1Method = document.querySelector('.payment-method[data-payment="1"]');
+            const payment1Amount = document.querySelector('.payment-amount[data-payment="1"]');
+            const payment2Method = document.querySelector('.payment-method[data-payment="2"]');
+            const payment2Amount = document.querySelector('.payment-amount[data-payment="2"]');
+            const payment2Container = document.getElementById('payment2');
+            
+            if (!payment1Amount) {
+                console.warn('Cannot find payment amount field');
+                return;
+            }
+            
+            // Check if payment method 2 is active (visible)
+            const payment2Active = payment2Container && !payment2Container.classList.contains('d-none');
+            const payment2HasMethod = payment2Method && payment2Method.value;
+            
+            console.log(`Payment 2 active: ${payment2Active}, has method: ${payment2HasMethod}`);
+            console.log(`Current values - Payment 1: ${payment1Amount.value}, Payment 2: ${payment2Active ? payment2Amount.value : 'N/A'}`);
+            
+            // CASE 1: Only one payment method visible
+            if (!payment2Active || !payment2HasMethod) {
+                // Always set the full amount for the first payment
+                payment1Amount.value = formatInputValue(total);
+                console.log(`✅ Single payment mode: Set payment 1 amount to full total: ${total}`);
+                return;
+            }
+            
+            // CASE 2: Two payment methods visible
+            if (payment2Amount) {
+                const payment1Value = parseCurrencyInput(payment1Amount.value) || 0;
+                const payment2Value = parseCurrencyInput(payment2Amount.value) || 0;
+                const currentTotal = payment1Value + payment2Value;
+                
+                console.log(`Two payment mode: Current values (${payment1Value} + ${payment2Value} = ${currentTotal}), Target total: ${total}`);
+                
+                // Check if values need adjusting due to cart changes
+                if (Math.abs(currentTotal - total) > 0.01) {
+                    // CASE 2A: Both payments are empty or zero
+                    if ((payment1Value === 0 || !payment1Amount.value) && 
+                        (payment2Value === 0 || !payment2Amount.value)) {
+                        // Split evenly
+                        const half = total / 2;
+                        payment1Amount.value = formatInputValue(half);
+                        payment2Amount.value = formatInputValue(half);
+                        console.log(`✅ Both empty: Split payment evenly: ${half} each`);
+                    } 
+                    // CASE 2B: First payment has value, second is empty
+                    else if (payment1Value > 0 && (payment2Value === 0 || !payment2Amount.value)) {
+                        if (payment1Value >= total) {
+                            // First payment covers or exceeds the total
+                            payment1Amount.value = formatInputValue(total);
+                            payment2Amount.value = formatInputValue(0);
+                            console.log(`✅ First has value: First payment covers total, set to: ${total}`);
+                        } else {
+                            // First payment is less than total, fill second with remainder
+                            const remainder = total - payment1Value;
+                            payment2Amount.value = formatInputValue(remainder);
+                            console.log(`✅ First has value: First payment stays at ${payment1Value}, second adjusted to: ${remainder}`);
+                        }
+                    } 
+                    // CASE 2C: Second payment has value, first is empty
+                    else if ((payment1Value === 0 || !payment1Amount.value) && payment2Value > 0) {
+                        if (payment2Value >= total) {
+                            // Second payment covers or exceeds the total
+                            payment2Amount.value = formatInputValue(total);
+                            payment1Amount.value = formatInputValue(0);
+                            console.log(`✅ Second has value: Second payment covers total, set to: ${total}`);
+                        } else {
+                            // Second payment is less than total, fill first with remainder
+                            const remainder = total - payment2Value;
+                            payment1Amount.value = formatInputValue(remainder);
+                            console.log(`✅ Second has value: Second payment stays at ${payment2Value}, first adjusted to: ${remainder}`);
+                        }
+                    } 
+                    // CASE 2D: Both payments have values
+                    else {
+                        // Adjust proportionally to maintain the ratio but match the new total
+                        const ratio = payment1Value / currentTotal;
+                        const newPayment1 = Math.round((total * ratio) * 100) / 100; // Round to 2 decimal places
+                        const newPayment2 = Math.round((total - newPayment1) * 100) / 100;
+                        
+                        payment1Amount.value = formatInputValue(newPayment1);
+                        payment2Amount.value = formatInputValue(newPayment2);
+                        console.log(`✅ Both have values: Adjusted proportionally - first: ${newPayment1}, second: ${newPayment2}`);
+                    }
+                } else {
+                    console.log(`✅ No adjustment needed, current total (${currentTotal}) matches cart total (${total})`);
+                }
+            }
+        };
+
+        // Make sure cart modifications trigger IMMEDIATE recalculations
+        const originalAddToCart = window.cart.add;
+        window.cart.add = function(productId, quantity = 1) {
+            console.log(`🛒 Adding product ${productId} to cart, quantity: ${quantity}`);
+            // Call the original method
+            originalAddToCart.call(this, productId, quantity);
+            
+            // Force immediate recalculation of totals
+            this.calculateTotals();
+        };
+        
+        const originalRemoveFromCart = window.cart.remove;
+        window.cart.remove = function(productId) {
+            console.log(`🛒 Removing product ${productId} from cart`);
+            // Call the original method
+            originalRemoveFromCart.call(this, productId);
+            
+            // Force immediate recalculation of totals
+            this.calculateTotals();
+        };
+        
+        const originalUpdateQuantity = window.cart.updateQuantity;
+        window.cart.updateQuantity = function(productId, newQuantity) {
+            console.log(`🛒 Updating quantity for product ${productId} to ${newQuantity}`);
+            // Call the original method
+            originalUpdateQuantity.call(this, productId, newQuantity);
+            
+            // Force immediate recalculation of totals
+            this.calculateTotals();
+        };
+    }
+
+    // Improve modal handling to ensure it can be reopened
+    const modalInstances = {};
+
+    // Function to safely show a modal
+    window.showPaymentMethodsModal = function() {
+        console.log('Attempting to show payment methods modal');
+        
+        try {
+            // Make sure we have a modal element in the DOM
+            const modalElement = createPaymentMethodsModal();
+            
+            // Clean up any existing instance
+            let existingModal = bootstrap.Modal.getInstance(modalElement);
+            if (existingModal) {
+                existingModal.dispose();
+            }
+            
+            // Create a fresh instance
+            const modalInstance = new bootstrap.Modal(modalElement);
+            
+            // Load the payment methods data
+            loadPaymentMethods();
+            
+            // Show the modal
+            modalInstance.show();
+            
+            console.log('Payment methods modal shown successfully');
+        } catch (error) {
+            console.error('Error showing payment methods modal:', error);
+        }
+    };
+
+    // Clean up modal instances when modals are hidden
+    document.addEventListener('hidden.bs.modal', function(event) {
+        const modalId = event.target.id;
+        if (modalId === 'paymentMethodsModal') {
+            if (modalInstances.paymentMethods) {
+                modalInstances.paymentMethods = null;
+            }
+        }
+    }, false);
+
+    // Set up global functions
+    window.addPaymentMethod = addPaymentMethod;
+    window.deletePaymentMethod = deletePaymentMethod;
+    window.removePaymentMethod = removePaymentMethod;
+
+    // Initialize payment methods if document is already loaded
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        // Document already loaded, initialize immediately
+        loadPaymentMethods();
+    } else {
+        // Wait for document to load
+        document.addEventListener('DOMContentLoaded', loadPaymentMethods);
+    }
+
+    // ========== QUICK ACTIONS ==========
     window.showQuickSale = () => {
         const modalElement = new bootstrap.Modal(document.getElementById('newSaleModal'));
         modalElement.show();
@@ -1810,7 +2485,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(error => {
                 console.error('❌ Error updating monthly profit:', error);
             });
-        }
+    }
 
     window.calculateCommissions = async () => {
         const startDate = document.getElementById('commissionStartDate').value;
@@ -2239,6 +2914,51 @@ document.addEventListener('DOMContentLoaded', () => {
         window.open(`/api/exportar/vendas?${params.toString()}`, '_blank');
     };
 
+    // Setup global event delegation for payment-related fields
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Setting up payment method event listeners');
+        
+        // Listen for changes to payment method fields using event delegation
+        document.body.addEventListener('change', function(e) {
+            if (e.target.classList.contains('payment-method')) {
+                window.payments.handleMethodChange(e);
+            }
+        });
+        
+        // Listen for input on payment amounts
+        document.body.addEventListener('input', function(e) {
+            if (e.target.classList.contains('payment-amount') || 
+                e.target.classList.contains('payment-interest')) {
+                
+                // Use debounce for performance
+                clearTimeout(window._paymentInputTimeout);
+                window._paymentInputTimeout = setTimeout(() => {
+                    if (window.cart && typeof window.cart.calculateTotals === 'function') {
+                        window.cart.calculateTotals();
+                    }
+                }, 300);
+            }
+        });
+        
+        // Handle blur events to format values
+        document.body.addEventListener('blur', function(e) {
+            if (e.target.classList.contains('payment-amount')) {
+                const value = parseCurrencyInput(e.target.value);
+                e.target.value = formatInputValue(value);
+                
+                // Recalculate after formatting
+                if (window.cart && typeof window.cart.calculateTotals === 'function') {
+                    window.cart.calculateTotals();
+                }
+            }
+        });
+        
+        // Fix "addPaymentMethod" button if it has wrong function
+        document.querySelectorAll('button[onclick="window.addPaymentMethod()"]').forEach(btn => {
+            btn.setAttribute('onclick', 'payments.add()');
+        });
+    });
+
     // ========== FILTER MODAL FUNCTIONS ==========
     window.filterManager = filterManager;
 
@@ -2329,13 +3049,55 @@ document.addEventListener('DOMContentLoaded', () => {
             salesSearchInput.addEventListener('input', debounce((e) => {
                 const searchTerm = e.target.value.toLowerCase().trim();
                 if (searchTerm) {
-                    currentFilters.search = searchTerm;
+                    filterManager.updateFilter('search', searchTerm);
                 } else {
-                    delete currentFilters.search;
+                    filterManager.removeFilter('search');
                 }
-                currentPage = 1;
-                loadSalesData();
             }, 500));
+        }
+
+        // Sorting functionality
+        document.querySelectorAll('.sort-header').forEach(header => {
+            header.addEventListener('click', function() {
+                const field = this.dataset.sort;
+                if (!field) return;
+                
+                const newOrder = currentSort.field === field && currentSort.order === 'ASC' ? 'DESC' : 'ASC';
+                
+                currentSort = { field, order: newOrder };
+                currentPage = 1;
+                
+                // Update sort indicators
+                document.querySelectorAll('.sort-header').forEach(h => {
+                    h.classList.remove('sort-asc', 'sort-desc');
+                });
+                
+                this.classList.add(newOrder === 'ASC' ? 'sort-asc' : 'sort-desc');
+                
+                loadSalesData();
+            });
+        });
+
+        // Date filter listeners
+        const startDateFilter = document.getElementById('startDateFilter');
+        const endDateFilter = document.getElementById('endDateFilter');
+        
+        if (startDateFilter && endDateFilter) {
+            startDateFilter.addEventListener('change', () => {
+                if (startDateFilter.value) {
+                    filterManager.updateFilter('startDate', startDateFilter.value);
+                } else {
+                    filterManager.removeFilter('startDate');
+                }
+            });
+            
+            endDateFilter.addEventListener('change', () => {
+                if (endDateFilter.value) {
+                    filterManager.updateFilter('endDate', endDateFilter.value);
+                } else {
+                    filterManager.removeFilter('endDate');
+                }
+            });
         }
 
         // Cleanup modals when hidden
@@ -2412,7 +3174,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ========== GLOBAL FUNCTIONS ==========
-    window.cart = cart;
+    window.cart = cart || {};
     window.payments = payments;
     window.modal = modal;
     window.submitSale = submitSale;
@@ -2487,11 +3249,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     };
 
-
-
     // ========== MAIN DATA LOADING ==========
     const loadSalesData = async () => {
         try {
+            showLoading();
+            
             const params = new URLSearchParams({
                 page: currentPage,
                 limit: CONFIG.PAGINATION_SIZE,
@@ -2535,13 +3297,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error('Failed to load sales data:', error);
             showNotification('Erro ao carregar vendas', 'danger');
+        } finally {
+            hideLoading();
         }
-    };
-
-    window.refreshAnalytics = () => {
-        loadAnalyticsData();
-        updateSalesStats(); // Make sure we update the sales stats too
-        showNotification('Analytics atualizados', 'success', 2000);
     };
 
     function renderPagination() {
@@ -2656,6 +3414,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .notification {
                 box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
                 border-radius: 6px;
+                z-index: 1100;
             }
             .product-card {
                 transition: all 0.3s ease;
@@ -2685,6 +3444,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 from { opacity: 0; transform: translateY(-10px); }
                 to { opacity: 1; transform: translateY(0); }
             }
+            .profit-updated {
+                animation: pulse 1.5s ease-in-out;
+            }
+            @keyframes pulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.1); color: #4caf50; }
+                100% { transform: scale(1); }
+            }
+            .sort-header {
+                cursor: pointer;
+                position: relative;
+                user-select: none;
+            }
+            .sort-header::after {
+                content: '⇅';
+                opacity: 0.5;
+                margin-left: 5px;
+                font-size: 0.8em;
+            }
+            .sort-header.sort-asc::after {
+                content: '↑';
+                opacity: 1;
+            }
+            .sort-header.sort-desc::after {
+                content: '↓';
+                opacity: 1;
+            }
         `;
         document.head.appendChild(style);
     };
@@ -2699,8 +3485,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const dataLoaded = await loadData();
             
             if (dataLoaded) {
+                injectStyles();
                 setupEventListeners();
-                filterManager.init(); // ADD THIS LINE
+                filterManager.init();
                 salesTable.update();
                 
                 await Promise.all([
@@ -2723,7 +3510,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // ========== START INITIALIZATION ==========
-    injectStyles();
     initialize();
 
     // Auto-refresh every 5 minutes
@@ -2733,4 +3519,148 @@ document.addEventListener('DOMContentLoaded', () => {
             loadAnalyticsData();
         }
     }, 5 * 60 * 1000);
+
+    // Add a function to schedule update of monthly profit with delay
+    function scheduleUpdateMonthlyProfit(delay = 1000) {
+        console.log(`Scheduling monthly profit update in ${delay}ms`);
+        clearTimeout(window._profitUpdateTimeout);
+        window._profitUpdateTimeout = setTimeout(() => {
+            updateMonthlyProfit();
+        }, delay);
+    }
+    
+    // Make it globally available
+    window.scheduleUpdateMonthlyProfit = scheduleUpdateMonthlyProfit;
+        // Setup payment method listeners for enhanced payment handling
+
+    
+    // Call setup after a short delay to ensure DOM is ready
+    setTimeout(setupPaymentListeners, 500);
+    
+    // Additionally, set up global event delegation for newly added elements
+    document.body.addEventListener('change', function(e) {
+        if (e.target.classList.contains('payment-method')) {
+            if (window.payments && typeof window.payments.handleMethodChange === 'function') {
+                window.payments.handleMethodChange(e);
+            }
+            
+            // Recalculate totals after method change
+            if (window.cart && typeof window.cart.calculateTotals === 'function') {
+                setTimeout(() => window.cart.calculateTotals(), 100);
+            }
+        }
+    });
+    // Define a single, definitive payment listener setup function
+    function setupPaymentListeners() {
+        console.log('🔧 Setting up enhanced payment listeners');
+        
+        // Clean up any existing listeners (clone and replace approach)
+        document.querySelectorAll('.payment-method').forEach(select => {
+            const newSelect = select.cloneNode(true);
+            select.parentNode.replaceChild(newSelect, select);
+        });
+        
+        document.querySelectorAll('.payment-amount, .payment-interest').forEach(input => {
+            const newInput = input.cloneNode(true);
+            input.parentNode.replaceChild(newInput, input);
+        });
+        
+        // Add a recalculate button for manual testing
+        document.querySelectorAll('.payment-container').forEach(container => {
+            if (!container.querySelector('.recalculate-button')) {
+                const recalcButton = document.createElement('button');
+                recalcButton.type = 'button';
+                recalcButton.className = 'btn btn-sm btn-outline-secondary mt-2 recalculate-button';
+                recalcButton.innerHTML = '<i class="bi bi-arrow-repeat"></i> Recalcular';
+                recalcButton.onclick = function() {
+                    console.log('Manual recalculation triggered');
+                    if (window.cart && typeof window.cart.calculateTotals === 'function') {
+                        window.cart.calculateTotals();
+                    }
+                };
+                container.appendChild(recalcButton);
+            }
+        });
+        
+        // Setup global event delegation for all payment-related events
+        document.removeEventListener('change', handlePaymentChange);
+        document.addEventListener('change', handlePaymentChange);
+        
+        document.removeEventListener('input', handlePaymentInput);
+        document.addEventListener('input', handlePaymentInput);
+        
+        document.removeEventListener('blur', handlePaymentBlur, true);
+        document.addEventListener('blur', handlePaymentBlur, true);
+        
+        console.log('✅ Payment listeners setup complete');
+    }
+
+    // Separate handler functions for better organization
+    function handlePaymentChange(e) {
+        if (e.target.classList.contains('payment-method')) {
+            console.log(`Payment method changed: ${e.target.value}`);
+            
+            // Update installment UI if needed
+            if (window.payments && typeof window.payments.handleMethodChange === 'function') {
+                window.payments.handleMethodChange({target: e.target});
+            }
+            
+            // Always recalculate totals after payment method change
+            if (window.cart && typeof window.cart.calculateTotals === 'function') {
+                window.cart.calculateTotals();
+            }
+        }
+    }
+
+    function handlePaymentInput(e) {
+        if (e.target.classList.contains('payment-amount') || e.target.classList.contains('payment-interest')) {
+            const inputType = e.target.classList.contains('payment-amount') ? 'amount' : 'interest';
+            console.log(`Payment ${inputType} input: ${e.target.value}`);
+            
+            // Debounce for performance
+            clearTimeout(window._paymentInputTimeout);
+            window._paymentInputTimeout = setTimeout(() => {
+                if (window.cart && typeof window.cart.calculateTotals === 'function') {
+                    window.cart.calculateTotals();
+                }
+            }, 300);
+        }
+    }
+
+    function handlePaymentBlur(e) {
+        if (e.target.classList.contains('payment-amount')) {
+            console.log(`Payment amount blur event: ${e.target.value}`);
+            const value = parseCurrencyInput(e.target.value);
+            e.target.value = formatInputValue(value);
+            
+            // Recalculate after formatting
+            if (window.cart && typeof window.cart.calculateTotals === 'function') {
+                window.cart.calculateTotals();
+            }
+        }
+    }
+
+    // Call setup once after DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+        // Give time for the page to fully initialize
+        setTimeout(setupPaymentListeners, 500);
+    });
+
+    // Also make sure cart changes trigger recalculation explicitly
+    document.addEventListener('DOMContentLoaded', function() {
+        const cartButtons = document.querySelectorAll('button[onclick*="cart.add"], button[onclick*="cart.remove"]');
+        cartButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                setTimeout(() => {
+                    if (window.cart && typeof window.cart.calculateTotals === 'function') {
+                        console.log('Cart button clicked, forcing recalculation');
+                        window.cart.calculateTotals();
+                    }
+                }, 100);
+            });
+        });
+    });
+
+    // Call this function after DOM is ready
+    setTimeout(setupPaymentListeners, 1000);
 });

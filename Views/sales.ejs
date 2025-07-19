@@ -81,6 +81,12 @@
                             Exportar
                         </button>
                     </div>
+                    <div class="col-md-2">
+                        <button class="btn quick-action-btn w-100" onclick="showPaymentMethodsModal()">
+                            <i class="bi bi-credit-card d-block mb-1"></i>
+                            Métodos de Pagamento
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -441,7 +447,9 @@
                                             <h6 class="mb-0">Produtos</h6>
                                             <div class="input-group" style="width: 300px;">
                                                 <input type="text" class="form-control" id="productSearch" placeholder="Buscar produtos...">
-                                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                                <span class="input-group-text bg-white">
+                                                    <i class="bi bi-search"></i>
+                                                </span>
                                             </div>
                                         </div>
                                     </div>
@@ -617,6 +625,41 @@
                 <button class="btn btn-sm btn-danger" onclick="bulkDelete()">
                     <i class="bi bi-trash me-1"></i>Excluir Selecionadas
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="paymentMethodsModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-credit-card me-2"></i>Métodos de Pagamento
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <input type="text" id="newPaymentMethodName" class="form-control" 
+                                placeholder="Nome do método de pagamento">
+                        </div>
+                        <div class="col-md-4">
+                            <button class="btn btn-primary w-100" onclick="addPaymentMethod()">
+                                <i class="bi bi-plus-circle me-2"></i>Adicionar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="requiresInstallments">
+                        <label class="form-check-label" for="requiresInstallments">
+                            Permite parcelamento
+                        </label>
+                    </div>
+                    <div id="paymentMethodsList" class="list-group">
+                        <!-- Payment methods will be loaded here -->
+                    </div>
+                </div>
             </div>
         </div>
     </div>
