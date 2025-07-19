@@ -80,7 +80,6 @@ if (!fs.existsSync(path.join(__dirname, 'public/images/products'))) {
   }
 };
 
-// Call this function before starting your Express app
 setupDirectories();
 
 // ========== MIDDLEWARE SETUP ==========
@@ -153,6 +152,42 @@ const validateRequired = (fields, data) => {
         throw new Error(`Campos obrigatórios: ${missing.join(', ')}`);
     }
 };
+
+// ========== DEFAULT PAYMENT METHODS SETUP ==========
+async function setupDefaultPaymentMethods() {
+    try {
+    console.log('🔄 Verificando métodos de pagamento padrão...');
+
+    // Check if default payment methods already exist
+    const defaultMethodsCheck = await pool.query(
+        'SELECT COUNT(*) FROM payment_methods WHERE is_system_default = true'
+    );
+
+    const count = parseInt(defaultMethodsCheck.rows[0].count);
+
+    if (count === 0) {
+        console.log('⚠️ Nenhum método de pagamento padrão encontrado. Criando...');
+        
+        // Insert default payment methods
+        await pool.query(`
+        INSERT INTO payment_methods (method, requires_installments, is_system_default) 
+        VALUES 
+            ('Dinheiro', false, true),
+            ('Cartão de Débito', false, true),
+            ('Cartão de Crédito', true, true),
+            ('PIX', false, true),
+            ('Transferência Bancária', false, true)
+        ON CONFLICT (method) DO NOTHING;
+        `);
+        
+        console.log('✅ Métodos de pagamento padrão criados com sucesso!');
+    } else {
+        console.log(`✅ ${count} métodos de pagamento padrão já existem.`);
+    }
+    } catch (error) {
+    console.error('❌ Erro ao configurar métodos de pagamento padrão:', error);
+    }
+}
 
 app.get('/api/monthly-profit', requireAuth, async (req, res) => {
     try {
@@ -3227,22 +3262,33 @@ app.use((err, req, res, next) => {
 });
 
 // ========== SERVER STARTUP ==========
-const server = app.listen(port, () => {
-    console.log(`🚀 Servidor FinHelp rodando na porta ${port}`);
-    console.log(`📱 Acesse: http://localhost:${port}`);
-    console.log(`🔧 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🗄️ Banco: PostgreSQL`);
-    console.log(`🔐 Sessões: Configuradas`);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-    console.log('🛑 SIGTERM received. Shutting down gracefully...');
-    server.close(() => {
-        console.log('💤 Server closed.');
-        pool.end();
-        process.exit(0);
+// ========== SERVER STARTUP ==========
+(async () => {
+  try {
+    // Setup default payment methods before starting the server
+    await setupDefaultPaymentMethods();
+    
+    const server = app.listen(port, () => {
+        console.log(`🚀 Servidor FinHelp rodando na porta ${port}`);
+        console.log(`📱 Acesse: http://localhost:${port}`);
+        console.log(`🔧 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`🗄️ Banco: PostgreSQL`);
+        console.log(`🔐 Sessões: Configuradas`);
     });
-});
+
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+        console.log('🛑 SIGTERM received. Shutting down gracefully...');
+        server.close(() => {
+            console.log('💤 Server closed.');
+            pool.end();
+            process.exit(0);
+        });
+    });
+  } catch (error) {
+    console.error('❌ Startup error:', error);
+    process.exit(1);
+  }
+})();
 
 export default app;
