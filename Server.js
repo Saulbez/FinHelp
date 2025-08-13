@@ -9,6 +9,8 @@ import { v4 as uuidv4 } from "uuid";
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import userController from "./controllers/userControler.js";
+import authController from "./controllers/authController.js";
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -95,6 +97,17 @@ app.set("views", [
   path.join(__dirname, "Views/partials"),  // Try partials with capital V
   path.join(__dirname, "views/partials")   // Try partials with lowercase v
 ]);
+const profileStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    // Create directory if it doesn't exist
+    const dir = "public/images/profiles";
+    if (!fs.existsSync(dir)){
+        fs.mkdirSync(dir, { recursive: true });
+    }
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => cb(null, `${req.session.userId}-${Date.now()}${path.extname(file.originalname)}`)
+});
 
 // ========== MULTER CONFIGURATION ==========
 const storage = multer.diskStorage({
@@ -152,6 +165,76 @@ const validateRequired = (fields, data) => {
         throw new Error(`Campos obrigatórios: ${missing.join(', ')}`);
     }
 };
+
+const uploadProfilePic = multer({ 
+  storage: profileStorage, 
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith("image/")) {
+      return cb(new Error("Apenas imagens são permitidas!"), false);
+    }
+    cb(null, true);
+  }
+});
+
+// Middleware to fetch monthly profit for all profile related pages
+app.use('/profile*', requireAuth, async (req, res, next) => {
+    try {
+        req.monthlyProfit = await calculateMonthlyProfit(req.session.userId);
+        next();
+    } catch (error) {
+        console.error('Error calculating monthly profit for profile:', error);
+        req.monthlyProfit = 0;
+        next();
+    }
+});
+
+// User Profile Routes
+app.get("/profile", requireAuth, userController.getProfile);
+app.post("/profile/update", requireAuth, userController.updateProfile);
+app.post("/profile/password", requireAuth, userController.updatePassword);
+app.post("/profile/phone", requireAuth, userController.updatePhoneNumber);
+app.post("/profile/phone/verify", requireAuth, userController.verifyPhoneNumber);
+app.post("/profile/2fa/setup", requireAuth, userController.setupTwoFactor);
+app.post("/profile/2fa/verify", requireAuth, userController.verifyTwoFactor);
+app.post("/profile/2fa/disable", requireAuth, userController.disableTwoFactor);
+app.post("/profile/picture", requireAuth, uploadProfilePic.single('profilePicture'), userController.uploadProfilePicture);
+
+// Password Reset Routes
+app.get("/forgot-password", (req, res) => {
+    res.render("forgot-password", { title: "Esqueci minha senha" });
+});
+app.post("/forgot-password", authController.forgotPassword);
+app.get("/reset-password/:token", authController.resetPasswordPage);
+app.post("/reset-password", authController.resetPasswordSubmit);
+
+// Social Login Routes (For demonstration - implementation requires OAuth setup)
+app.get("/auth/google", (req, res) => {
+    // In a real implementation, redirect to Google's OAuth page
+    res.render("social-login", { 
+        title: "Login com Google",
+        message: "Esta é uma página de demonstração. Em uma implementação real, você seria redirecionado para o Google."
+    });
+});
+
+app.get("/auth/facebook", (req, res) => {
+    // In a real implementation, redirect to Facebook's OAuth page
+    res.render("social-login", { 
+        title: "Login com Facebook",
+        message: "Esta é uma página de demonstração. Em uma implementação real, você seria redirecionado para o Facebook."
+    });
+});
+
+// Social login callback routes (placeholders for actual OAuth implementation)
+app.get("/auth/google/callback", (req, res) => {
+    // Handle Google OAuth callback
+    res.redirect("/");
+});
+
+app.get("/auth/facebook/callback", (req, res) => {
+    // Handle Facebook OAuth callback
+    res.redirect("/");
+});
 
 // ========== DEFAULT PAYMENT METHODS SETUP ==========
 async function setupDefaultPaymentMethods() {
@@ -356,7 +439,7 @@ app.post("/register", async (req, res) => {
 });
 
 app.get("/login", (req, res) => {
-    res.render("login", { title: "Login" });
+    res.render("login", { title: "Login", socialLogin: true });
 });
 
 app.post("/login", async (req, res) => {
@@ -367,7 +450,8 @@ app.post("/login", async (req, res) => {
         if (!login || !password) {
             return res.render("login", { 
                 error: "Usuário/email e senha são obrigatórios", 
-                title: "Login" 
+                title: "Login",
+                socialLogin: true
             });
         }
         
@@ -380,7 +464,8 @@ app.post("/login", async (req, res) => {
         if (rows.length === 0) {
             return res.render("login", { 
                 error: "Usuário ou email não encontrado", 
-                title: "Login" 
+                title: "Login",
+                socialLogin: true
             });
         }
         
@@ -395,7 +480,8 @@ app.post("/login", async (req, res) => {
         
         res.render("login", { 
             error: "Senha incorreta", 
-            title: "Login" 
+            title: "Login",
+            socialLogin: true
         });
     } catch (error) {
         console.error('Login error:', error);
